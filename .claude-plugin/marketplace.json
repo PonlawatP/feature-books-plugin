@@ -1,0 +1,17 @@
+{
+  "name": "ponlawatp",
+  "owner": {
+    "name": "Ponlawat",
+    "email": "ponlawat_pa@maholan.co.th"
+  },
+  "description": "Ponlawat's Claude Code plugins",
+  "plugins": [
+    {
+      "name": "feature-books",
+      "source": "./",
+      "description": "Feature Books — knowledge graph of feature logic + code fences (data lives in each project's .feature-books/)",
+      "category": "productivity",
+      "tags": ["obsidian", "architecture", "regression"]
+    }
+  ]
+}
