@@ -45,14 +45,6 @@ function findVault(start?: string): string | null {
   }
 }
 
-function findNoteFile(vault: string, id: string): string | null {
-  for (const folder of ["features", "states", "shared", "apis"]) {
-    const p = path.join(vault, folder, `${id}.md`)
-    if (fs.existsSync(p)) return p
-  }
-  return null
-}
-
 export default (async () => {
   return {
     tool: {
@@ -110,109 +102,17 @@ export default (async () => {
             .describe("Related Zustand store slices"),
         },
         async execute(args) {
-          const vault = findVault()
-          if (!vault) return "Error: no .feature-books/ vault found. Run fb-init first."
-
-          const prefixMap: Record<string, string> = {
-            feature: "feat-",
-            state: "state-",
-            shared: "shared-",
-            api: "api-",
+          // Single source of truth: delegate to scripts/fb-new.mjs (shared with Claude Code).
+          const parts = [args.type, args.id]
+          if (args.title) parts.push(`--title ${JSON.stringify(args.title)}`)
+          const csv = (k: string, v?: string[]) => {
+            if (v?.length) parts.push(`--${k} ${JSON.stringify(v.join(","))}`)
           }
-          const expected = prefixMap[args.type]
-          if (!args.id.startsWith(expected)) {
-            return `Warning: id "${args.id}" should start with "${expected}" for type "${args.type}"`
-          }
-
-          const folderMap: Record<string, string> = {
-            feature: "features",
-            state: "states",
-            shared: "shared",
-            api: "apis",
-          }
-          const folder = folderMap[args.type]
-          const filePath = path.join(vault, folder, `${args.id}.md`)
-
-          if (!fs.existsSync(path.join(vault, folder))) {
-            fs.mkdirSync(path.join(vault, folder), { recursive: true })
-          }
-          if (fs.existsSync(filePath)) {
-            return `Error: ${args.id}.md already exists at .feature-books/${folder}/${args.id}.md`
-          }
-
-          let language = "English"
-          try {
-            const cfg = JSON.parse(
-              fs.readFileSync(path.join(vault, ".fbconfig.json"), "utf8")
-            )
-            if (cfg.language) language = cfg.language
-          } catch {}
-
-          const today = new Date().toISOString().split("T")[0]
-
-          const lines: string[] = [
-            "---",
-            `id: ${args.id}`,
-            `type: ${args.type}`,
-            `status: draft`,
-            `last_reviewed: ${today}`,
-          ]
-          if (args.title) lines.push(`title: ${args.title}`)
-
-          const writeList = (key: string, vals?: string[]) => {
-            if (!vals?.length) return
-            lines.push(`${key}:`)
-            vals.forEach((v) => lines.push(`  - ${v}`))
-          }
-          writeList("depends_on", args.depends_on)
-          writeList("impacts", args.impacts)
-          writeList("core_files", args.core_files)
-          writeList("related_states", args.related_states)
-
-          lines.push(
-            "---",
-            "",
-            `# ${args.title || args.id}`,
-            "",
-            "## Business Rules",
-            "",
-            `<!-- Describe the business logic here, in ${language} -->`,
-            "",
-            "## Change Log",
-            "",
-            "| Date | Change |",
-            "|------|--------|",
-            `| ${today} | Created |`,
-            ""
-          )
-
-          fs.writeFileSync(filePath, lines.join("\n"))
-
-          const allLinks = [...(args.depends_on || []), ...(args.impacts || [])]
-          for (const linkedId of allLinks) {
-            const linkedFile = findNoteFile(vault, linkedId)
-            if (!linkedFile) continue
-            const content = fs.readFileSync(linkedFile, "utf8")
-            const isImpact = (args.impacts || []).includes(linkedId)
-            const field = isImpact ? "depends_on" : "impacts"
-            if (!content.includes(`${field}:\n`)) {
-              const updated = content.replace(
-                /^---\n/,
-                `---\n${field}:\n  - "[[${args.id}]]"\n`
-              )
-              fs.writeFileSync(linkedFile, updated)
-            } else if (!content.includes(`[[${args.id}]]`)) {
-              const updated = content.replace(
-                new RegExp(`(${field}:\\n)`),
-                `$1  - "[[${args.id}]]"\n`
-              )
-              fs.writeFileSync(linkedFile, updated)
-            }
-          }
-
-          const lintResult = runScript("graph-lint")
-
-          return `Created .feature-books/${folder}/${args.id}.md\n\n${lintResult}`
+          csv("depends_on", args.depends_on)
+          csv("impacts", args.impacts)
+          csv("core_files", args.core_files)
+          csv("related_states", args.related_states)
+          return runScript("fb-new", parts.join(" "))
         },
       }),
 

@@ -14,7 +14,7 @@ Before creating or editing a feature book, read the `language` field from
 `.feature-books/.fbconfig.json` (default: **English** if the file is absent).
 Write all Feature Book prose — frontmatter prose values (e.g. business rules) and the
 Markdown body — in that language. Keep ids, paths, tags, and code unchanged.
-Change it with the `fb-config` tool (action: set, language: <name>); the new language applies from the next operation onward
+Change it with `/fb-config set <language>`; the new language applies from the next operation onward
 and existing books are not retranslated.
 
 ## When to use
@@ -41,15 +41,18 @@ Before editing/refactoring any code related to a feature in this repo, follow th
 - `core_files`: globs of the files this note owns (the fence)
 - `related_states`: related Zustand store/slice
 
-## Custom tools (OpenCode)
-These tools are registered by the feature-books plugin. The AI can call them directly:
-- `fb-init` — bootstrap a new project with `.feature-books/` skeleton + Obsidian graph colors
-- `fb-new` — create a new feature book with proper frontmatter and bidirectional relations
-- `fb-impact` — analyze git diff blast radius (owning features → downstream impacts)
-- `fb-sync` — find source files not covered by any feature's `core_files` fence
-- `fb-config` — get/set the content language (stored in `.fbconfig.json`)
+## Slash commands
+- `/fb-init` — bootstrap a new project with `.feature-books/` skeleton + Obsidian graph colors
+- `/fb-new` — create a new feature book (proper frontmatter + bidirectional relations)
+- `/fb-impact` — analyze git diff blast radius (owning features → downstream impacts)
+- `/fb-sync` — find source files not covered by any feature's `core_files` fence
+- `/fb-config` — get/set the content language (stored in `.fbconfig.json`)
 
 ## Helper scripts (run via node)
-- `node <scripts-dir>/graph-lint.mjs` — check bidirectional relations + links to non-existent ids
-- `node <scripts-dir>/diff-impact.mjs` — map git diff → owning features → summarize blast radius
-- `node <scripts-dir>/fence-check.mjs <file>` — which feature's fence a file belongs to (runs automatically before edit/write via plugin hook)
+All commands above run these scripts under the hood; you can also call them directly:
+- `node "${CLAUDE_PLUGIN_ROOT}/scripts/graph-lint.mjs"` — check bidirectional relations + links to non-existent ids
+- `node "${CLAUDE_PLUGIN_ROOT}/scripts/diff-impact.mjs"` — map git diff → owning features → summarize blast radius
+- `node "${CLAUDE_PLUGIN_ROOT}/scripts/fb-new.mjs" <type> <id>` — create a feature book (validates, links, lints)
+- `node "${CLAUDE_PLUGIN_ROOT}/scripts/fence-check.mjs" <file>` — which feature's fence a file belongs to (also runs automatically before edit/write via the PreToolUse hook)
+
+> Note: under OpenCode the same scripts are exposed as native tools (`fb-init`, `fb-new`, …) via `src/index.ts`; the scripts are the shared source of truth for both runtimes.

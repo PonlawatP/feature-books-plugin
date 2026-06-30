@@ -3,7 +3,9 @@ description: Find code files under src/ not covered by any feature book's core_f
 argument-hint: [glob to scan, e.g. "src/**/*.ts"]
 ---
 
-Call the `fb-sync` tool to find orphan files: $ARGUMENTS
+Find code files that have no owner in the Feature Books.
 
-If the user provides a glob, pass it as the `glob` argument. Otherwise use the default (`src/**/*.ts`).
-Report the orphan files to the user. Do NOT change anything automatically — let the user decide how to handle them.
+1. Run `node "${CLAUDE_PLUGIN_ROOT}/scripts/fb-sync.mjs" $ARGUMENTS` (pass a glob to scan, e.g. `src/**/*.ts`; default is `src/**/*.ts`).
+2. Report the orphan files to the user as a list.
+3. For orphan files that look important, suggest which feature book they should belong to, or create a new one with `/fb-new`.
+4. Do NOT change anything automatically — report and let the user decide.
