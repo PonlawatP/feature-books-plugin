@@ -12,8 +12,8 @@ where the plugin is installed.
 
 ## What you get
 
-- **Skill** `feature-books` — teaches Claude to load a feature book 1 hop before editing, respect the fence, and update the Change Log
-- **Commands**: `/fb-init` (bootstrap a new project + seed graph colors), `/fb-new`, `/fb-impact`, `/fb-sync`, `/fb-config` (set content language)
+- **Skill** `feature-books` — teaches the AI to load a feature book 1 hop before editing, respect the fence, and update the Change Log
+- **Tools**: `fb-init`, `fb-new`, `fb-impact`, `fb-sync`, `fb-config` (usable via `use <tool>` in OpenCode or `/<command>` in Claude Code)
 - **Hook** (PreToolUse on Edit/Write) — `fence-check` warns when about to edit a file outside a feature's fence
 - **Scripts**: `graph-lint`, `diff-impact`, `fence-check`, `fb-init` (Node ≥ 16, no dependencies)
 
@@ -32,44 +32,94 @@ Or from GitHub:
 ```
 
 ### OpenCode
-The plugin and skill work globally. Run these commands once:
 
-```bash
-# 1. Copy the plugin to global OpenCode plugins
-cp .opencode/plugins/feature-books.ts ~/.config/opencode/plugins/
+#### From npm (easiest — once published)
 
-# 2. Copy scripts to a known location
-cp -r scripts ~/.config/opencode/feature-books-scripts/
-
-# 3. Set env var so the plugin finds scripts (add to your shell profile)
-export FEATURE_BOOKS_SCRIPTS="$HOME/.config/opencode/feature-books-scripts"
-# Windows PowerShell: [Environment]::SetEnvironmentVariable("FEATURE_BOOKS_SCRIPTS", "$env:USERPROFILE\.config\opencode\feature-books-scripts", "User")
-
-# 4. Link the skill so OpenCode loads it
-ln -s "$PWD/skills/feature-books" ~/.claude/skills/feature-books
-# Windows: New-Item -ItemType Junction -Path ~\.claude\skills\feature-books -Target "$PWD\skills\feature-books"
+```json
+// opencode.json
+{
+  "plugin": ["@ponlawatp/feature-books"]
+}
 ```
 
-> **Alternative**: For per-project use, copy `.opencode/` + `scripts/` into each project. The plugin auto-discovers `../../scripts` relative to its own location.
+OpenCode auto-installs it at startup. No file copying needed.
+The `scripts/` are bundled in the npm package and found automatically.
+Skills are auto-discovered from the package too.
+
+**Before publishing**, run:
+```bash
+npm run build        # compile src/index.ts -> dist/index.js
+npm publish          # publish to npm
+```
+
+#### Per-project (auto-discovery)
+
+Run `scripts/install-opencode.mjs` inside the target project:
+```bash
+node ../feature-books-plugin/scripts/install-opencode.mjs
+```
+
+This copies `.opencode/plugins/feature-books.ts` + `scripts/` into the project
+and links the skill to `~/.claude/skills/feature-books`. The plugin is
+auto-discovered because it lives in `.opencode/plugins/`.
+
+#### Global install (one-time, works in every project)
+
+```bash
+# 1. Clone the repo to a fixed location (e.g. home dir)
+git clone https://github.com/PonlawatP/feature-books-plugin ~/feature-books-plugin
+
+# 2. Set env var so the plugin finds scripts (add to shell profile)
+export FEATURE_BOOKS_SCRIPTS="$HOME/feature-books-plugin/scripts"
+# Windows PowerShell:
+# [Environment]::SetEnvironmentVariable("FEATURE_BOOKS_SCRIPTS", "$env:USERPROFILE\feature-books-plugin\scripts", "User")
+
+# 3. Link the skill (OpenCode auto-loads from ~/.claude/skills/)
+ln -s ~/feature-books-plugin/skills/feature-books ~/.claude/skills/feature-books
+# Windows:
+# New-Item -ItemType Junction -Path ~\.claude\skills\feature-books -Target ~\feature-books-plugin\skills\feature-books
+```
+
+Then add to each project's `opencode.json`:
+```json
+{
+  "plugin": ["file:///Users/you/feature-books-plugin/.opencode/plugins/feature-books.ts"]
+}
+```
+
+#### Quick project reference (no copy)
+
+If the plugin repo is cloned alongside your project:
+```json
+{
+  "plugin": ["../feature-books-plugin/.opencode/plugins/feature-books.ts"]
+}
+```
+
+Scripts are resolved automatically via `FEATURE_BOOKS_SCRIPTS` env var or by
+finding them relative to the plugin file.
 
 ## Get started in a project
+
 Run inside the target repo:
 
-### Claude Code
-```bash
-/fb-init            # create .feature-books/ + seed Obsidian graph colors (no manual setup)
-/fb-new feature feat-login
-```
-
 ### OpenCode
-Prompt the AI to call the tools:
-- `use fb-init tool` to bootstrap
+Ask the AI:
+- `use fb-init tool` to bootstrap the `.feature-books/` vault
 - `use fb-new tool` to create a feature book
 - `use fb-impact tool` to analyze blast radius
 
-Open the `.feature-books/` folder as an Obsidian vault (install the **Dataview** community plugin for the table in `_index.md`).
+### Claude Code
+```bash
+/fb-init
+/fb-new feature feat-login
+```
 
-## Note on migrating from standalone `.claude/`
-A standalone `.claude/` registers hooks only via `settings.json` — `.claude/hooks/hooks.json` will not fire.
-When used as a **plugin**, the `hooks/hooks.json` location is correct and the hook works on its own.
-So once installed as a plugin, remove the old command/skill co
+Open the `.feature-books/` folder as an Obsidian vault (install the **Dataview**
+community plugin for the table in `_index.md`).
+
+## Notes
+
+- A standalone `.claude/` registers hooks only via `settings.json` — `.claude/hooks/hooks.json` will not fire there. When used as a **Claude Code plugin**, the hook location is correct.
+- OpenCode hooks live inside the plugin code (`tool.execute.before`), so the `hooks/hooks.json` is ignored by OpenCode — kept only for Claude Code compatibility.
+- The tools (fb-init, fb-new, etc.) are available as native OpenCode tools that the AI can call directly without slash commands.
