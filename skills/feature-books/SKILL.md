@@ -14,7 +14,7 @@ Before creating or editing a feature book, read the `language` field from
 `.feature-books/.fbconfig.json` (default: **English** if the file is absent).
 Write all Feature Book prose — frontmatter prose values (e.g. business rules) and the
 Markdown body — in that language. Keep ids, paths, tags, and code unchanged.
-Change it with `/fb-config set <language>`; the new language applies from the next operation onward
+Change it with the `fb-config` tool (action: set, language: <name>); the new language applies from the next operation onward
 and existing books are not retranslated.
 
 ## When to use
@@ -41,13 +41,15 @@ Before editing/refactoring any code related to a feature in this repo, follow th
 - `core_files`: globs of the files this note owns (the fence)
 - `related_states`: related Zustand store/slice
 
-## Helper scripts (run via node)
-- `node "${CLAUDE_PLUGIN_ROOT}/scripts/graph-lint.mjs"` — check bidirectional relations + links to non-existent ids
-- `node "${CLAUDE_PLUGIN_ROOT}/scripts/diff-impact.mjs"` — map git diff → owning features → summarize blast radius
-- `node "${CLAUDE_PLUGIN_ROOT}/scripts/fence-check.mjs" <file>` — which feature's fence a file belongs to (also used as a PreToolUse hook)
+## Custom tools (OpenCode)
+These tools are registered by the feature-books plugin. The AI can call them directly:
+- `fb-init` — bootstrap a new project with `.feature-books/` skeleton + Obsidian graph colors
+- `fb-new` — create a new feature book with proper frontmatter and bidirectional relations
+- `fb-impact` — analyze git diff blast radius (owning features → downstream impacts)
+- `fb-sync` — find source files not covered by any feature's `core_files` fence
+- `fb-config` — get/set the content language (stored in `.fbconfig.json`)
 
-## Slash commands
-- `/fb-new` — create a new feature book from a template
-- `/fb-impact` — analyze the impact of the current change
-- `/fb-sync` — find code files that have no owner in any feature book
-- `/fb-config` — get/set the content language (default English)
+## Helper scripts (run via node)
+- `node <scripts-dir>/graph-lint.mjs` — check bidirectional relations + links to non-existent ids
+- `node <scripts-dir>/diff-impact.mjs` — map git diff → owning features → summarize blast radius
+- `node <scripts-dir>/fence-check.mjs <file>` — which feature's fence a file belongs to (runs automatically before edit/write via plugin hook)

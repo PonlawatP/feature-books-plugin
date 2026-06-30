@@ -1,7 +1,7 @@
-# Feature Books (Claude Code plugin)
+# Feature Books (Claude Code + OpenCode plugin)
 
 A knowledge graph of business logic and each feature's code "fence", stored as an Obsidian vault
-in every project at `.feature-books/`. It lets Claude read the relevant context before editing
+in every project at `.feature-books/`. It lets the AI read the relevant context before editing
 code and warns about the blast radius to reduce regression bugs.
 
 **Important:** the plugin installs globally, but the `.feature-books/` data always lives in each repo,
@@ -19,25 +19,54 @@ where the plugin is installed.
 
 ## Install
 
-### Test locally (local marketplace)
+### Claude Code (via plugin marketplace)
 ```bash
 /plugin marketplace add ./feature-books-plugin
 /plugin install feature-books@ponlawatp
 ```
 
-### Use globally via GitHub
-Push this folder to a repo (e.g. `ponlawatp/feature-books`), then:
+Or from GitHub:
 ```bash
 /plugin marketplace add ponlawatp/feature-books
 /plugin install feature-books@ponlawatp
 ```
-Install once and use it across all projects. Then in each project run `/fb-init` to create `.feature-books/`.
+
+### OpenCode
+The plugin and skill work globally. Run these commands once:
+
+```bash
+# 1. Copy the plugin to global OpenCode plugins
+cp .opencode/plugins/feature-books.ts ~/.config/opencode/plugins/
+
+# 2. Copy scripts to a known location
+cp -r scripts ~/.config/opencode/feature-books-scripts/
+
+# 3. Set env var so the plugin finds scripts (add to your shell profile)
+export FEATURE_BOOKS_SCRIPTS="$HOME/.config/opencode/feature-books-scripts"
+# Windows PowerShell: [Environment]::SetEnvironmentVariable("FEATURE_BOOKS_SCRIPTS", "$env:USERPROFILE\.config\opencode\feature-books-scripts", "User")
+
+# 4. Link the skill so OpenCode loads it
+ln -s "$PWD/skills/feature-books" ~/.claude/skills/feature-books
+# Windows: New-Item -ItemType Junction -Path ~\.claude\skills\feature-books -Target "$PWD\skills\feature-books"
+```
+
+> **Alternative**: For per-project use, copy `.opencode/` + `scripts/` into each project. The plugin auto-discovers `../../scripts` relative to its own location.
 
 ## Get started in a project
+Run inside the target repo:
+
+### Claude Code
 ```bash
 /fb-init            # create .feature-books/ + seed Obsidian graph colors (no manual setup)
 /fb-new feature feat-login
 ```
+
+### OpenCode
+Prompt the AI to call the tools:
+- `use fb-init tool` to bootstrap
+- `use fb-new tool` to create a feature book
+- `use fb-impact tool` to analyze blast radius
+
 Open the `.feature-books/` folder as an Obsidian vault (install the **Dataview** community plugin for the table in `_index.md`).
 
 ## Note on migrating from standalone `.claude/`
