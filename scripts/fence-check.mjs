@@ -21,6 +21,11 @@ const STRICT = process.env.FENCE_STRICT === "1";
 const file = await getTargetFile();
 if (!file) process.exit(0); // unknown file -> let it pass
 
+// Silent when invoked as a hook (no argv, stdin piped from Claude Code / OpenCode).
+// Prevents TUI corruption on both platforms. Direct CLI usage still shows output.
+const isHook = !process.argv[2] && !process.stdin.isTTY;
+const out = isHook ? () => {} : (msg) => console.error(msg);
+
 const rel = file.replace(/\\/g, "/").replace(/^.*?(?=src\/|\.feature-books\/|\.claude\/)/, "");
 // Don't warn when editing the feature books or the plugin itself
 if (rel.startsWith(".feature-books/") || rel.startsWith(".claude/")) process.exit(0);
@@ -31,12 +36,12 @@ const owners = ownersOf(rel, notes);
 if (owners.length) {
   const ids = owners.map((o) => o.id).join(", ");
   const impacts = [...new Set(owners.flatMap((o) => o.impacts))];
-  console.error(`[feature-books] This file is inside the fence of: ${ids}`);
-  if (impacts.length) console.error(`[feature-books] Watch for impact on: ${impacts.join(", ")}`);
+  out(`[feature-books] This file is inside the fence of: ${ids}`);
+  if (impacts.length) out(`[feature-books] Watch for impact on: ${impacts.join(", ")}`);
   process.exit(0);
 }
 
 // Not inside any feature's fence
-console.error(`[feature-books] ⚠ "${rel}" is not in any feature's core_files — ` +
+out(`[feature-books] ⚠ "${rel}" is not in any feature's core_files — ` +
   `consider adding it to a feature book, or confirm the edit is intentional.`);
 process.exit(STRICT ? 2 : 0);

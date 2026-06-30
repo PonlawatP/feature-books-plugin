@@ -32,7 +32,7 @@ Before editing/refactoring any code related to a feature in this repo, follow th
 ## After editing code
 1. If the feature has `impacts` → tell the user to also test/verify those downstream features.
 2. Update the **Change Log** section in the note with the date and what changed.
-3. If you added/removed files that should be in the fence → update `core_files` to match.
+3. **Auto-claim new files**: for every file you created or edited, **immediately** run `use fb-claim tool` with the file path and current feature ID. This keeps the fence in sync without manual bookkeeping. Use `--glob` to claim the whole directory (e.g. `src/foo/bar.ts` → `src/foo/**`).
 
 ## Schema reference (frontmatter)
 - `id` (kebab-case, prefix: feat- / state- / shared- / api-) matches the filename
@@ -47,6 +47,7 @@ Before editing/refactoring any code related to a feature in this repo, follow th
 - `/fb-impact` — analyze git diff blast radius (owning features → downstream impacts)
 - `/fb-sync` — find source files not covered by any feature's `core_files` fence
 - `/fb-config` — get/set the content language (stored in `.fbconfig.json`)
+- `/fb-claim <file-path> <feature-id> [--glob]` — claim a file under a feature's fence (auto-add to core_files)
 
 ## Helper scripts (run via node)
 All commands above run these scripts under the hood; you can also call them directly:
@@ -54,5 +55,6 @@ All commands above run these scripts under the hood; you can also call them dire
 - `node "${CLAUDE_PLUGIN_ROOT}/scripts/diff-impact.mjs"` — map git diff → owning features → summarize blast radius
 - `node "${CLAUDE_PLUGIN_ROOT}/scripts/fb-new.mjs" <type> <id>` — create a feature book (validates, links, lints)
 - `node "${CLAUDE_PLUGIN_ROOT}/scripts/fence-check.mjs" <file>` — which feature's fence a file belongs to (also runs automatically before edit/write via the PreToolUse hook)
+- `node "${CLAUDE_PLUGIN_ROOT}/scripts/fb-claim.mjs" <file-path> <feature-id> [--glob]` — claim a file under a feature's fence
 
 > Note: under OpenCode the same scripts are exposed as native tools (`fb-init`, `fb-new`, …) via `src/index.ts`; the scripts are the shared source of truth for both runtimes.

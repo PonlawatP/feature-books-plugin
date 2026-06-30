@@ -169,6 +169,30 @@ export default (async () => {
           return runScript("fb-config", args.action + extra)
         },
       }),
+
+      "fb-claim": tool({
+        description:
+          "Add a file to a feature book's core_files fence. Use after creating/editing files outside the fence. The AI will auto-run this after edits if a file falls outside any feature's core_files.",
+        args: {
+          filePath: tool.schema
+            .string()
+            .describe("Path to the file to claim (repo-relative or absolute)"),
+          featureId: tool.schema
+            .string()
+            .describe("Feature ID to claim the file under (e.g. feat-books)"),
+          glob: tool.schema
+            .boolean()
+            .optional()
+            .describe("Auto-convert file to directory glob (e.g. src/foo/bar.ts -> src/foo/**)"),
+        },
+        async execute(args) {
+          const vault = findVault()
+          if (!vault) return "Error: no .feature-books/ vault found. Run fb-init first."
+          const parts = [JSON.stringify(args.filePath), args.featureId]
+          if (args.glob) parts.push("--glob")
+          return runScript("fb-claim", parts.join(" "))
+        },
+      }),
     },
 
     "tool.execute.before": async (input, output) => {
@@ -180,11 +204,10 @@ export default (async () => {
       try {
         const fenceScript = path.join(SCRIPTS_DIR, "fence-check.mjs")
         if (!fs.existsSync(fenceScript)) return
-        const result = execSync(
+        execSync(
           `node "${fenceScript}" "${filePath}"`,
-          { encoding: "utf8", cwd: process.cwd() }
+          { stdio: ["pipe", "ignore", "ignore"], encoding: "utf8", cwd: process.cwd() }
         )
-        if (result.trim()) process.stderr.write(result)
       } catch {}
     },
   } satisfies Hooks

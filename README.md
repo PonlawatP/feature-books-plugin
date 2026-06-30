@@ -123,3 +123,19 @@ community plugin for the table in `_index.md`).
 - A standalone `.claude/` registers hooks only via `settings.json` — `.claude/hooks/hooks.json` will not fire there. When used as a **Claude Code plugin**, the hook location is correct.
 - OpenCode hooks live inside the plugin code (`tool.execute.before`), so the `hooks/hooks.json` is ignored by OpenCode — kept only for Claude Code compatibility.
 - The tools (fb-init, fb-new, etc.) are available as native OpenCode tools that the AI can call directly without slash commands.
+
+---
+
+## Development — REMINDER: Keep both platforms in sync
+
+This plugin targets **Claude Code** (primary) and **OpenCode**. Every change must touch all layers:
+
+| Layer | Claude Code | OpenCode |
+|-------|-------------|----------|
+| Plugin entry | `.claude-plugin/plugin.json` | `src/index.ts` → `dist/index.js` (npm), `.opencode/plugins/feature-books.ts` (local dev) |
+| Hooks | `hooks/hooks.json` (PreToolUse → fence-check.mjs) | Plugin `tool.execute.before` (`src/index.ts` + `.opencode/plugins/feature-books.ts`) |
+| Scripts | `scripts/*.mjs` (shared, same files) | `scripts/*.mjs` (shared, same files) |
+| Skill | `skills/feature-books/SKILL.md` (shared) | `skills/feature-books/SKILL.md` (shared) |
+| Tools | Slash commands (via scripts) | Native tools in plugin code |
+
+**Rule:** always edit `src/index.ts` AND `.opencode/plugins/feature-books.ts` in parallel, then rebuild (`npm run build`). The scripts + skill live in one place and are shared — no extra sync needed there.
