@@ -1,7 +1,7 @@
 {
   "name": "feature-books",
   "description": "Knowledge graph of feature business-logic and code fences, stored as an Obsidian vault in each project's .feature-books/. Loads the relevant feature context before edits and warns about blast radius to prevent regressions.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "author": {
     "name": "Ponlawat",
     "email": "ponlawat.prb@gmail.com"
