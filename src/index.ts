@@ -18,7 +18,11 @@ function resolveScriptsDir(): string {
   const fromLocal = path.resolve(PLUGIN_DIR, "..", "..", "scripts")
   if (fs.existsSync(fromLocal)) return fromLocal
 
-  // Per-project install: .opencode/plugins/ -> ../feature-books-scripts
+  // Per-project install: .opencode/plugins/ -> ../../feature-books-scripts (project root)
+  const projectSibling = path.resolve(PLUGIN_DIR, "..", "..", "feature-books-scripts")
+  if (fs.existsSync(projectSibling)) return projectSibling
+
+  // Legacy/global: .opencode/plugins/ -> ../feature-books-scripts
   const sibling = path.resolve(PLUGIN_DIR, "..", "feature-books-scripts")
   if (fs.existsSync(sibling)) return sibling
 

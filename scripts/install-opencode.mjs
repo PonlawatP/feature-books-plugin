@@ -90,13 +90,17 @@ function install(targetDir, pluginRoot) {
   const opener = "\n  " + "=".repeat(56) + "\n";
   console.log(`${opener}  Installing Feature Books for OpenCode\n`);
 
-  // 1. Copy plugin file
-  const pluginSrc = path.resolve(pluginRoot, ".opencode", "plugins", "feature-books.ts");
+  // 1. Copy plugin file.
+  //    Use the self-contained source (src/index.ts), NOT .opencode/plugins/feature-books.ts —
+  //    that one is a re-export of ../../src/index that only resolves inside the plugin repo.
+  //    src/index.ts has no local imports (only @opencode-ai/plugin + node builtins), so it
+  //    works standalone when dropped into a target's .opencode/plugins/.
+  const pluginSrc = path.resolve(pluginRoot, "src", "index.ts");
   const pluginDestDir = path.resolve(targetDir, ".opencode", "plugins");
   const pluginDest = path.join(pluginDestDir, "feature-books.ts");
 
   if (!fs.existsSync(pluginSrc)) {
-    console.error(`  ✗ plugin not found at ${pluginSrc}`);
+    console.error(`  ✗ plugin source not found at ${pluginSrc}`);
     process.exit(1);
   }
 
