@@ -1,4 +1,4 @@
-import { tool, type Hooks } from "@opencode-ai/plugin"
+import { tool, type Hooks, type PluginInput } from "@opencode-ai/plugin"
 import path from "node:path"
 import fs from "node:fs"
 import { fileURLToPath } from "node:url"
@@ -49,7 +49,7 @@ function findVault(start?: string): string | null {
   }
 }
 
-export default (async () => {
+export default (async ({ client, directory }: PluginInput) => {
   return {
     tool: {
       "fb-init": tool({
@@ -208,6 +208,39 @@ export default (async () => {
           `node "${fenceScript}" "${filePath}"`,
           { stdio: ["pipe", "ignore", "ignore"], encoding: "utf8", cwd: process.cwd() }
         )
+      } catch {}
+    },
+
+    // Auto-book parity for OpenCode (Claude Code uses the Stop hook). When the session goes
+    // idle after code changes, ask fb-autobook.mjs (the shared brain) whether any feature book
+    // is out of sync; if so, re-prompt the model to update it — no manual command needed.
+    // The script's own loop guard (MAX_REPROMPTS + state file) prevents runaway re-prompts.
+    event: async ({ event }) => {
+      try {
+        if (event.type !== "session.idle") return
+        const sessionID = event.properties?.sessionID
+        if (!sessionID || !SCRIPTS_DIR) return
+        const script = path.join(SCRIPTS_DIR, "fb-autobook.mjs")
+        if (!fs.existsSync(script)) return
+
+        let out = ""
+        try {
+          out = execSync(`node "${script}" --report --cwd "${directory}"`, {
+            encoding: "utf8",
+            cwd: directory,
+          })
+        } catch {
+          return
+        }
+
+        let res: { action?: string; reason?: string }
+        try { res = JSON.parse(out) } catch { return }
+        if (res?.action !== "block" || !res.reason) return
+
+        await client.session.prompt({
+          path: { id: sessionID },
+          body: { parts: [{ type: "text", text: res.reason }] },
+        })
       } catch {}
     },
   } satisfies Hooks

@@ -34,6 +34,14 @@ Before editing/refactoring any code related to a feature in this repo, follow th
 2. Update the **Change Log** section in the note with the date and what changed.
 3. **Auto-claim new files**: for every file you created or edited, **immediately** run `use fb-claim tool` with the file path and current feature ID. This keeps the fence in sync without manual bookkeeping. Use `--glob` to claim the whole directory (e.g. `src/foo/bar.ts` → `src/foo/**`).
 
+> **Enforced automatically.** A `Stop` hook (`fb-autobook.mjs`) runs when you finish a turn.
+> If you changed code but the owning book has no Change Log entry for today — or a changed
+> code file belongs to no book at all (a new feature) — it **blocks the turn end** and hands
+> you the exact books to update. Do it in the same turn: create the book with `/fb-new` for a
+> new feature, claim files with `/fb-claim`, and add the dated Change Log row. It stops
+> prompting the moment the books reflect the change. Users never run these commands by hand.
+> Kill switch: set `FB_AUTOBOOK=0`.
+
 ## Schema reference (frontmatter)
 - `id` (kebab-case, prefix: feat- / state- / shared- / api-) matches the filename
 - `type`: feature | state | shared | api
@@ -55,6 +63,7 @@ All commands above run these scripts under the hood; you can also call them dire
 - `node "${CLAUDE_PLUGIN_ROOT}/scripts/diff-impact.mjs"` — map git diff → owning features → summarize blast radius
 - `node "${CLAUDE_PLUGIN_ROOT}/scripts/fb-new.mjs" <type> <id>` — create a feature book (validates, links, lints)
 - `node "${CLAUDE_PLUGIN_ROOT}/scripts/fence-check.mjs" <file>` — which feature's fence a file belongs to (also runs automatically before edit/write via the PreToolUse hook)
+- `node "${CLAUDE_PLUGIN_ROOT}/scripts/fb-autobook.mjs"` — runs automatically on the `Stop` hook: if changed code isn't reflected in its feature book (stale Change Log or new-feature orphan), blocks turn-end and lists what to update (loop-guarded; disable with `FB_AUTOBOOK=0`)
 - `node "${CLAUDE_PLUGIN_ROOT}/scripts/fb-claim.mjs" <file-path> <feature-id> [--glob]` — claim a file under a feature's fence
 
 > Note: under OpenCode the same scripts are exposed as native tools (`fb-init`, `fb-new`, …) via `src/index.ts`; the scripts are the shared source of truth for both runtimes.

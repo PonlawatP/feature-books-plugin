@@ -80,6 +80,11 @@ writeIfAbsent(
   JSON.stringify(GRAPH_JSON, null, 2) + "\n",
   ".feature-books/.obsidian/graph.json (4 color groups)"
 );
+writeIfAbsent(
+  path.join(vault, ".gitignore"),
+  "# Feature Books local state (transient — do not commit)\n.fb-autobook.json\n",
+  ".feature-books/.gitignore (ignore auto-book state)"
+);
 
 console.log("\nDone — open .feature-books/ in Obsidian; the graph will be colored by type immediately.");
 console.log("(Remember to install the Dataview community plugin for the table in _index.md)");
