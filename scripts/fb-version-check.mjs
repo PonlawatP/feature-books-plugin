@@ -31,7 +31,7 @@ try {
 } catch { /* no .fbconfig.json or unreadable -> treat as unknown */ }
 
 if (!vaultVersion) {
-  console.error(
+  console.log(
     `[feature-books] ⚠ This vault has no version stamp (created by an older plugin version, ` +
     `or before version tracking was added). Installed plugin is v${pluginVersion}. ` +
     `Run /fb-fix to restore Obsidian settings and stamp the vault with the current version.`
@@ -40,7 +40,7 @@ if (!vaultVersion) {
 }
 
 if (vaultVersion !== pluginVersion) {
-  console.error(
+  console.log(
     `[feature-books] ⚠ Vault version (v${vaultVersion}) does not match the installed plugin (v${pluginVersion}). ` +
     `Obsidian graph colors/appearance may be out of date. Run /fb-fix to update them.`
   );

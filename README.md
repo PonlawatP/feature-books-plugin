@@ -1,4 +1,4 @@
-# Feature Books (Claude Code + OpenCode plugin)
+# Feature Books (Codex + Claude Code + OpenCode plugin)
 
 A knowledge graph of business logic and each feature's code "fence", stored as an Obsidian vault
 in every project at `.feature-books/`. It lets the AI read the relevant context before editing
@@ -8,17 +8,20 @@ code and warns about the blast radius to reduce regression bugs.
 because every script resolves the vault from the current working directory (cwd) upward — not from
 where the plugin is installed.
 
-**Language:** feature book content defaults to **English**, configurable per project. Change it with `/fb-config set <language>` (stored in `.feature-books/.fbconfig.json`); the new language applies from the next run onward and existing books are not retranslated.
+**Language:** feature book content defaults to **English**, configurable per project. Ask Codex to
+set the Feature Books language, use `/fb-config set <language>` in Claude Code, or call the
+`fb-config` tool in OpenCode. The setting lives in `.feature-books/.fbconfig.json`, applies from the
+next run onward, and does not retranslate existing books.
 
 ## What you get
 
 - **Skill** `feature-books` — teaches the AI to load a feature book 1 hop before editing, respect the fence, and update the Change Log
-- **Commands / Tools**: `/fb-init` (bootstrap a new project + seed graph colors + appearance), `/fb-fix` (restore graph colors/appearance if they drift or reset, re-stamp version), `/fb-version` (check vault version vs installed plugin), `/fb-new`, `/fb-impact`, `/fb-sync`, `/fb-config` (set content language), `/fb-claim` (add a file to a feature's fence), `/fb-task` (create a task/issue card), `/fb-triage` (process the task inbox) — usable via `use <tool>` in OpenCode or `/<command>` in Claude Code
+- **Workflows**: initialize, fix, version, create, impact, sync, configure, claim, task, and triage — invoke `$feature-books` or ask naturally in Codex, use `/<command>` in Claude Code, or `use <tool>` in OpenCode
 - **Hooks** (all plain deterministic scripts — no AI/LLM call in any of them):
   - `SessionStart` — `fb-version-check` compares the vault's stamped version against the installed plugin, every time work starts in a repo
   - `PreToolUse` on Edit/Write/MultiEdit — `fence-check` warns when about to edit a file outside a feature's fence
   - `PostToolUse` on Edit/Write/MultiEdit — `fb-staleness-check` reports which feature's fence (or which tasks/ stage) the just-edited file belongs to, so keeping Feature Books current after an edit doesn't rely on the model remembering to check
-  - `Stop` (Claude Code only) — `fb-autobook` blocks the turn from ending if changed code isn't reflected in its owning Feature Book (stale Change Log or a new, unclaimed feature); loop-guarded, disable with `FB_AUTOBOOK=0`
+  - `Stop` (Codex + Claude Code) — `fb-autobook` continues the turn if changed code isn't reflected in its owning Feature Book (stale Change Log or a new, unclaimed feature); loop-guarded, disable with `FB_AUTOBOOK=0`
 - **Scripts**: `graph-lint`, `diff-impact`, `fence-check`, `fb-init`, `fb-fix`, `fb-new`, `fb-claim`, `fb-autobook`, `fb-version-check`, `fb-staleness-check`, `fb-tasks-list`, `fb-tasks-lint` (Node ≥ 16, no dependencies)
 
 ## Install
@@ -31,9 +34,29 @@ where the plugin is installed.
 
 Or from GitHub:
 ```bash
-/plugin marketplace add ponlawatp/feature-books
+/plugin marketplace add PonlawatP/feature-books-plugin
 /plugin install feature-books@ponlawatp
 ```
+
+### Codex
+
+From a local clone:
+
+```bash
+codex plugin marketplace add ./feature-books-plugin
+codex plugin add feature-books@ponlawatp
+```
+
+Or directly from GitHub:
+
+```bash
+codex plugin marketplace add PonlawatP/feature-books-plugin
+codex plugin add feature-books@ponlawatp
+```
+
+Start a new Codex task after installation so the bundled skill and hooks are picked up. Open
+`/hooks` once to review and trust the plugin's deterministic hooks; Codex skips untrusted plugin
+hooks until they are approved.
 
 ### OpenCode
 
@@ -107,6 +130,15 @@ finding them relative to the plugin file.
 
 Run inside the target repo:
 
+### Codex
+
+Ask naturally, for example:
+
+- `Use $feature-books to initialize this project`
+- `Use $feature-books to create feature feat-login`
+- `Use $feature-books to analyze the blast radius of my changes`
+- `Use $feature-books to claim src/auth/login.ts for feat-login`
+
 ### OpenCode
 Ask the AI:
 - `use fb-init tool` to bootstrap the `.feature-books/` vault (+ graph colors, appearance, tasks/ kanban)
@@ -135,7 +167,7 @@ Separately, a `PostToolUse` hook fires after every edit and reports which featur
 belongs to, so the model is told — deterministically, every time — to update that Feature Book's Change
 Log/`core_files`/`impacts` before finishing, rather than relying on it to remember on its own.
 
-**Enforced automatically (Claude Code):** a `Stop` hook (`fb-autobook`) runs when a turn finishes. If
+**Enforced automatically (Codex + Claude Code):** a `Stop` hook (`fb-autobook`) runs when a turn finishes. If
 changed code isn't reflected in its owning book's Change Log for today — or belongs to no book at all
 (a new feature) — it blocks the turn from ending and hands back exactly what to update. Disable with
 `FB_AUTOBOOK=0`.
@@ -169,21 +201,23 @@ folder it's actually sitting in, which catches a manual drag that forgot to upda
 ## Notes
 
 - A standalone `.claude/` registers hooks only via `settings.json` — `.claude/hooks/hooks.json` will not fire there. When used as a **Claude Code plugin**, the hook location is correct.
-- OpenCode hooks live inside the plugin code (`tool.execute.before`), so the `hooks/hooks.json` is ignored by OpenCode — kept only for Claude Code compatibility. The `Stop`-hook `fb-autobook` behavior is exposed to OpenCode via its own `--report` mode for the plugin's `session.idle` handler.
+- Codex discovers `hooks/hooks.json` from the installed plugin. Its edit tools arrive as `apply_patch`; the shared hook scripts extract every file in the patch and return Codex-compatible JSON context.
+- OpenCode hooks live inside the plugin code (`tool.execute.before`), so `hooks/hooks.json` is ignored by OpenCode. The `Stop`-hook behavior is exposed through `--report` mode and the plugin's `session.idle` handler.
 - The tools (fb-init, fb-new, fb-claim, etc.) are available as native OpenCode tools that the AI can call directly without slash commands.
 
 ---
 
-## Development — REMINDER: Keep both platforms in sync
+## Development — REMINDER: Keep all platforms in sync
 
-This plugin targets **Claude Code** (primary) and **OpenCode**. Every change must touch all layers:
+This plugin targets **Codex**, **Claude Code**, and **OpenCode**. Keep shared behavior aligned:
 
-| Layer | Claude Code | OpenCode |
-|-------|-------------|----------|
-| Plugin entry | `.claude-plugin/plugin.json` | `src/index.ts` → `dist/index.js` (npm), `.opencode/plugins/feature-books.ts` (local dev) |
-| Hooks | `hooks/hooks.json` (SessionStart/PreToolUse/PostToolUse/Stop → scripts) | Plugin `tool.execute.before` / `session.idle` (`src/index.ts` + `.opencode/plugins/feature-books.ts`) |
-| Scripts | `scripts/*.mjs` (shared, same files) | `scripts/*.mjs` (shared, same files) |
-| Skill | `skills/feature-books/SKILL.md` (shared) | `skills/feature-books/SKILL.md` (shared) |
-| Tools | Slash commands (via scripts) | Native tools in plugin code |
+| Layer | Codex | Claude Code | OpenCode |
+|-------|-------|-------------|----------|
+| Plugin entry | `.codex-plugin/plugin.json` | `.claude-plugin/plugin.json` | `src/index.ts` → `dist/index.js` |
+| Hooks | `hooks/hooks.json` + Codex JSON protocol | `hooks/hooks.json` | `tool.execute.before` / `session.idle` |
+| Scripts | `scripts/*.mjs` (shared) | `scripts/*.mjs` (shared) | `scripts/*.mjs` (shared) |
+| Skill | `skills/feature-books/SKILL.md` | same shared skill | same shared skill |
+| Invocation | `$feature-books` / natural language | Slash commands | Native tools |
 
-**Rule:** always edit `src/index.ts` AND `.opencode/plugins/feature-books.ts` in parallel, then rebuild (`npm run build`). The scripts + skill live in one place and are shared — no extra sync needed there.
+**Rule:** when changing OpenCode tool wiring, edit `src/index.ts` and `.opencode/plugins/feature-books.ts`
+in parallel, then rebuild (`npm run build`). Hook scripts and the skill are shared across runtimes.

@@ -3,20 +3,52 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-// Read the installed plugin's own version from its plugin.json. Deterministic file read only —
-// no AI/LLM involved. Tries CLAUDE_PLUGIN_ROOT first (set by Claude Code when running as a plugin),
-// then falls back to resolving relative to this file (for local/manual runs).
+// Read the installed plugin's own version from its plugin.json. Deterministic file read only.
+// Codex sets PLUGIN_ROOT and also exposes CLAUDE_PLUGIN_ROOT for compatibility.
 export function getPluginVersion() {
   const candidates = [];
-  if (process.env.CLAUDE_PLUGIN_ROOT) {
-    candidates.push(path.join(process.env.CLAUDE_PLUGIN_ROOT, ".claude-plugin", "plugin.json"));
+  for (const root of [process.env.PLUGIN_ROOT, process.env.CLAUDE_PLUGIN_ROOT]) {
+    if (!root) continue;
+    candidates.push(path.join(root, ".codex-plugin", "plugin.json"));
+    candidates.push(path.join(root, ".claude-plugin", "plugin.json"));
   }
   const here = path.dirname(fileURLToPath(import.meta.url));
+  candidates.push(path.join(here, "..", ".codex-plugin", "plugin.json"));
   candidates.push(path.join(here, "..", ".claude-plugin", "plugin.json"));
   for (const p of candidates) {
     try { return JSON.parse(fs.readFileSync(p, "utf8")).version || null; } catch { /* try next */ }
   }
   return null;
+}
+
+// Read a Claude Code or Codex hook payload. Both hosts send JSON on stdin.
+export async function readHookPayload() {
+  if (process.stdin.isTTY) return null;
+  let data = "";
+  try { for await (const chunk of process.stdin) data += chunk; } catch { return null; }
+  if (!data.trim()) return null;
+  try { return JSON.parse(data); } catch { return null; }
+}
+
+// Claude edit tools provide file_path/path. Codex apply_patch provides the full patch in
+// tool_input.command, so extract every file header from that patch.
+export function hookTargetFiles(payload) {
+  const input = payload?.tool_input || {};
+  const files = [];
+  for (const value of [input.file_path, input.path]) {
+    if (typeof value === "string" && value.trim()) files.push(value.trim());
+  }
+  if (typeof input.command === "string") {
+    const re = /^\*\*\* (?:(?:Add|Update|Delete) File|Move to): (.+)$/gm;
+    for (const match of input.command.matchAll(re)) files.push(match[1].trim());
+  }
+  return [...new Set(files)];
+}
+
+export function repoRelativePath(file, cwd = process.cwd()) {
+  const repoRoot = findRepoRoot(cwd);
+  const absolute = path.isAbsolute(file) ? file : path.resolve(cwd, file);
+  return path.relative(repoRoot, absolute).replace(/\\/g, "/").replace(/^\.\//, "");
 }
 
 // Single source of truth for the seeded Obsidian graph colors, shared by fb-init and fb-fix.

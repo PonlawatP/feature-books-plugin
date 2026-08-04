@@ -1,0 +1,41 @@
+{
+  "name": "feature-books",
+  "version": "0.4.1",
+  "description": "Knowledge graph of feature business logic and code fences, stored as an Obsidian vault in each project.",
+  "author": {
+    "name": "Ponlawat",
+    "email": "ponlawat_pa@maholan.co.th",
+    "url": "https://github.com/PonlawatP"
+  },
+  "homepage": "https://github.com/PonlawatP/feature-books-plugin",
+  "repository": "https://github.com/PonlawatP/feature-books-plugin",
+  "license": "MIT",
+  "keywords": [
+    "obsidian",
+    "knowledge-graph",
+    "regression",
+    "architecture",
+    "feature-books",
+    "guardrails"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Feature Books",
+    "shortDescription": "Feature knowledge graphs and code fences",
+    "longDescription": "Load business rules before editing, guard feature ownership fences, track blast radius, and keep an Obsidian-based feature knowledge graph current.",
+    "developerName": "Ponlawat",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/PonlawatP/feature-books-plugin",
+    "defaultPrompt": [
+      "Initialize Feature Books in this project",
+      "Analyze the Feature Books impact of my changes",
+      "Create a Feature Book for this feature"
+    ],
+    "brandColor": "#5CF58F",
+    "screenshots": []
+  }
+}

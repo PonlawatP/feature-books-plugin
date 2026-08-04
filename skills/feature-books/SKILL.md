@@ -1,6 +1,6 @@
 ---
 name: feature-books
-description: Use whenever editing, refactoring, or reasoning about a feature in this repo. Loads the relevant Feature Book(s) from .feature-books/ as the source of truth for business logic, declares the code "fence" (core_files) for the feature, and checks blast radius (impacts) before changing code to avoid regressions.
+description: Use when initializing or maintaining Feature Books, creating or triaging its task cards or product specs, or editing, refactoring, and reasoning about a feature in a repo that uses .feature-books/. Loads business rules and code fences before edits, then checks blast radius and freshness afterward.
 ---
 
 # Feature Books
@@ -9,13 +9,24 @@ This repo keeps a knowledge graph of features in `.feature-books/` (an Obsidian 
 Each note carries YAML frontmatter that is the **source of truth** for business logic and
 the **fence** (which files belong to a feature) and **blast radius** (what a change impacts).
 
+## Runtime compatibility
+
+This skill supports Codex, Claude Code, and OpenCode. In Codex, users can invoke it explicitly as
+`$feature-books` or describe the desired workflow in natural language. Claude Code additionally
+exposes `/fb-*` slash commands, while OpenCode exposes native `fb-*` tools.
+
+When Codex needs a bundled script, resolve the plugin root as the directory two levels above this
+`SKILL.md`, then run `node <plugin-root>/scripts/<script>.mjs ...`. Do not assume
+`CLAUDE_PLUGIN_ROOT` is present in an ordinary Codex shell command; that compatibility variable is
+guaranteed for plugin hooks, not for arbitrary commands initiated by the skill.
+
 ## Version check (automatic, no AI involved)
 Every session start, a `SessionStart` hook runs `fb-version-check.mjs` — a plain deterministic
 script (no LLM call) that compares the version stamped in `.feature-books/.fbconfig.json` against
 the installed plugin's own version and prints a warning if they don't match or the vault predates
 version tracking. This is not something you need to remember to check — it always fires on its own.
-If you see that warning in context, tell the user to run `/fb-fix` (it restores Obsidian settings
-and re-stamps the version). `/fb-version` re-runs the same check on demand.
+If you see that warning in context, run the `fb-fix` workflow (it restores Obsidian settings and
+re-stamps the version). The `fb-version` workflow re-runs the same check on demand.
 
 ## Language rule (configurable, default English)
 Before creating or editing a feature book, read the `language` field from
@@ -42,7 +53,7 @@ A `PostToolUse` hook (`fb-staleness-check.mjs`, also deterministic — no AI cal
 Edit/Write/MultiEdit and tells you which feature's fence (if any) the edited file belongs to. Treat
 that reminder as a requirement, not a suggestion:
 1. **Auto-claim new files**: for every file you created or edited that isn't already in a feature's
-   fence, run `/fb-claim` (or `use fb-claim tool`) with the file path and the current feature ID.
+   fence, run `fb-claim.mjs` (or the native `fb-claim` tool) with the file path and current feature ID.
    Use `--glob` to claim the whole directory (e.g. `src/foo/bar.ts` → `src/foo/**`). This keeps the
    fence in sync without manual bookkeeping.
 2. Run `diff-impact.mjs` (or `/fb-impact`) to get the full blast radius before calling the task done.
@@ -53,11 +64,11 @@ that reminder as a requirement, not a suggestion:
 A task is not finished until the Feature Book reflects the code as it now stands — do not skip
 straight to reporting success while the note is still stale.
 
-> **Enforced automatically (Claude Code).** A `Stop` hook (`fb-autobook.mjs`) runs when you finish
+> **Enforced automatically (Claude Code and Codex).** A `Stop` hook (`fb-autobook.mjs`) runs when you finish
 > a turn. If you changed code but the owning book has no Change Log entry for today — or a changed
 > code file belongs to no book at all (a new feature) — it **blocks the turn end** and hands you the
-> exact books to update. Do it in the same turn: create the book with `/fb-new` for a new feature,
-> claim files with `/fb-claim`, and add the dated Change Log row. It stops prompting the moment the
+> exact books to update. Do it in the same turn: run the `fb-new` workflow for a new feature,
+> claim files with `fb-claim.mjs`, and add the dated Change Log row. It stops prompting the moment the
 > books reflect the change. Users never run these commands by hand. Kill switch: `FB_AUTOBOOK=0`.
 
 ## Schema reference (frontmatter)
@@ -87,7 +98,12 @@ Separate from feature books, but same vault. Each card is a note with its own sc
 `fb-tasks-lint.mjs` (deterministic, no AI) checks that a card's `status` field matches which of
 these 4 folders it's physically in, and flags drift after a manual drag.
 
-## Slash commands
+## Available workflows
+
+In Codex, interpret requests such as "initialize Feature Books", "run fb-impact", or
+"use `$feature-books` to create a task" as the corresponding workflow below. Claude Code users can
+invoke the slash-command spelling shown here:
+
 - `/fb-init` — bootstrap a new project with `.feature-books/` skeleton + Obsidian graph colors + appearance
 - `/fb-fix` — restore Obsidian graph colors/appearance and re-stamp the vault version
 - `/fb-version` — check the vault's stamped version against the installed plugin (deterministic, also runs automatically at session start)
@@ -99,17 +115,24 @@ these 4 folders it's physically in, and flags drift after a manual drag.
 - `/fb-task` — create a new task/issue card in `tasks/issues/`
 - `/fb-triage` — process the task inbox: format, link to feature books, estimate effort, move to `tasks/decisions/`
 
+For deterministic workflows, run the matching script in `<plugin-root>/scripts/`. For the
+judgment-heavy `fb-spec-new`, `fb-task`, and `fb-triage` workflows, first read the corresponding
+file under `<plugin-root>/commands/` completely and follow it. Treat `$ARGUMENTS` in those legacy
+command files as the user's natural-language input in Codex.
+
 ## Helper scripts (run via node)
 All commands above run these scripts under the hood; you can also call them directly:
-- `node "${CLAUDE_PLUGIN_ROOT}/scripts/graph-lint.mjs"` — check bidirectional relations + links to non-existent ids
-- `node "${CLAUDE_PLUGIN_ROOT}/scripts/diff-impact.mjs"` — map git diff → owning features → summarize blast radius
-- `node "${CLAUDE_PLUGIN_ROOT}/scripts/fb-new.mjs" <type> <id>` — create a feature book (validates, links, lints)
-- `node "${CLAUDE_PLUGIN_ROOT}/scripts/fence-check.mjs" <file>` — which feature's fence a file belongs to (also runs automatically before edit/write via the PreToolUse hook)
-- `node "${CLAUDE_PLUGIN_ROOT}/scripts/fb-autobook.mjs"` — runs automatically on the `Stop` hook: if changed code isn't reflected in its feature book (stale Change Log or new-feature orphan), blocks turn-end and lists what to update (loop-guarded; disable with `FB_AUTOBOOK=0`)
-- `node "${CLAUDE_PLUGIN_ROOT}/scripts/fb-claim.mjs" <file-path> <feature-id> [--glob]` — claim a file under a feature's fence
-- `node "${CLAUDE_PLUGIN_ROOT}/scripts/fb-fix.mjs"` — force-restore Obsidian graph colors/appearance and re-stamp the vault version
-- `node "${CLAUDE_PLUGIN_ROOT}/scripts/fb-version-check.mjs" [check]` — compare the vault's stamped version against the installed plugin
-- `node "${CLAUDE_PLUGIN_ROOT}/scripts/fb-tasks-list.mjs" [--inbox] [--json]` — list task/issue cards
-- `node "${CLAUDE_PLUGIN_ROOT}/scripts/fb-tasks-lint.mjs"` — check task card schema + folder/status consistency
+- `node "<plugin-root>/scripts/graph-lint.mjs"` — check bidirectional relations + links to non-existent ids
+- `node "<plugin-root>/scripts/diff-impact.mjs"` — map git diff → owning features → summarize blast radius
+- `node "<plugin-root>/scripts/fb-new.mjs" <type> <id>` — create a feature book (validates, links, lints)
+- `node "<plugin-root>/scripts/fence-check.mjs" <file>` — which feature's fence a file belongs to (also runs automatically before edit/write via the PreToolUse hook)
+- `node "<plugin-root>/scripts/fb-autobook.mjs"` — runs automatically on the `Stop` hook: if changed code isn't reflected in its feature book (stale Change Log or new-feature orphan), continues the turn with what to update (loop-guarded; disable with `FB_AUTOBOOK=0`)
+- `node "<plugin-root>/scripts/fb-claim.mjs" <file-path> <feature-id> [--glob]` — claim a file under a feature's fence
+- `node "<plugin-root>/scripts/fb-fix.mjs"` — force-restore Obsidian graph colors/appearance and re-stamp the vault version
+- `node "<plugin-root>/scripts/fb-version-check.mjs" [check]` — compare the vault's stamped version against the installed plugin
+- `node "<plugin-root>/scripts/fb-tasks-list.mjs" [--inbox] [--json]` — list task/issue cards
+- `node "<plugin-root>/scripts/fb-tasks-lint.mjs"` — check task card schema + folder/status consistency
 
-> Note: under OpenCode the same scripts are exposed as native tools (`fb-init`, `fb-new`, `fb-claim`, …) via `src/index.ts`; the scripts are the shared source of truth for both runtimes.
+> Note: Codex and Claude Code load lifecycle hooks from `hooks/hooks.json`. Codex requires users to
+> review and trust non-managed plugin hooks before they run. OpenCode exposes the same scripts as
+> native tools via `src/index.ts`; the scripts remain the shared source of truth.

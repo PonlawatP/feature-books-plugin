@@ -3,9 +3,9 @@
 // A NEW feature gets a new book; a CHANGED feature gets a fresh Change Log entry.
 // The user never has to run /fb-new, /fb-claim or /fb-impact by hand.
 //
-// Two runtimes, one brain (analyze()):
-//   • Claude Code  — default mode: reads the Stop-hook payload on stdin and, if books are
-//     out of sync, prints {"decision":"block","reason":…} so the turn cannot end until fixed.
+// Three runtimes, one brain (analyze()):
+//   • Claude Code / Codex — default mode reads the Stop-hook payload on stdin and, if books
+//     are out of sync, prints {"decision":"block","reason":…} so the turn continues until fixed.
 //   • OpenCode     — `--report [--cwd <dir>]`: prints {"action":"block"|"pass","reason":…}
 //     for the plugin's session.idle handler, which re-prompts the model via the SDK.
 //
@@ -150,12 +150,12 @@ function buildMessage({ orphans, stale, today, language }) {
     L.push("");
     L.push("Changed code files not owned by any Feature Book:");
     for (const f of orphans) L.push(`  • ${f}`);
-    L.push("    → If these belong to an existing feature, claim them with /fb-claim (or the fb-claim tool).");
-    L.push("    → If this is a NEW feature, create a book with /fb-new (feature feat-<name>, set core_files), then fill in Overview + Business Rules.");
+    L.push("    → If these belong to an existing feature, use the feature-books workflow to claim them.");
+    L.push("    → If this is a NEW feature, use the feature-books workflow to create a book (feature feat-<name>, set core_files), then fill in Overview + Business Rules.");
   }
 
   L.push("");
-  L.push("After updating, validate the graph: node \"${CLAUDE_PLUGIN_ROOT}/scripts/graph-lint.mjs\".");
+  L.push("After updating, run graph-lint.mjs from the installed Feature Books plugin.");
   L.push("(Re-checked when you finish; it goes quiet once the books reflect the change. Disable with FB_AUTOBOOK=0.)");
   return L.join("\n");
 }
@@ -217,7 +217,7 @@ async function main() {
     process.exit(0);
   }
 
-  // Claude Code Stop-hook protocol.
+  // Claude Code and Codex share this Stop-hook protocol.
   if (res.decision === "block") process.stdout.write(JSON.stringify({ decision: "block", reason: res.reason }));
   process.exit(0);
 }
