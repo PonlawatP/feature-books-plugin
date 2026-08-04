@@ -72,6 +72,37 @@ export default (async ({ client, directory }: PluginInput) => {
         },
       }),
 
+      "fb-workspace": tool({
+        description:
+          "Manage a multi-repository Feature Books workspace portal. Repository-local .feature-books vaults remain authoritative; the portal is a derived Obsidian catalog with local current-focus state.",
+        args: {
+          action: tool.schema
+            .enum(["init", "fix", "sync", "status", "focus", "clear-focus"])
+            .describe("Initialize, refresh, inspect, set focus, or clear focus"),
+          targetDir: tool.schema.string().optional().describe("Workspace root for init"),
+          repo: tool.schema.string().optional().describe("Registered repository name for focus"),
+          features: tool.schema.array(tool.schema.string()).optional().describe("Feature Book IDs currently in focus"),
+          task: tool.schema.string().optional().describe("Optional active task ID"),
+          relatedRepos: tool.schema.array(tool.schema.string()).optional().describe("Other repositories relevant to the current work"),
+          json: tool.schema.boolean().optional().describe("Return structured JSON for status"),
+        },
+        async execute(args) {
+          if (args.action === "init") {
+            return runScript("fb-workspace", `init ${JSON.stringify(args.targetDir || process.cwd())}`)
+          }
+          if (args.action === "sync") return runScript("fb-workspace", "sync")
+          if (args.action === "fix") return runScript("fb-workspace", "fix")
+          if (args.action === "status") return runScript("fb-workspace", args.json ? "status --json" : "status")
+          if (args.action === "clear-focus") return runScript("fb-workspace", "clear-focus")
+          if (!args.repo) return "Error: repo is required for action 'focus'"
+          const parts = ["focus", JSON.stringify(args.repo)]
+          for (const feature of args.features || []) parts.push(JSON.stringify(feature))
+          if (args.task) parts.push(`--task ${JSON.stringify(args.task)}`)
+          if (args.relatedRepos?.length) parts.push(`--related ${JSON.stringify(args.relatedRepos.join(","))}`)
+          return runScript("fb-workspace", parts.join(" "))
+        },
+      }),
+
       "fb-new": tool({
         description:
           "Create a new Feature Book markdown file under .feature-books/. Creates the file with proper frontmatter based on the schema, validates the id prefix, writes bidirectional relations, and runs graph-lint afterward.",
@@ -203,6 +234,64 @@ export default (async ({ client, directory }: PluginInput) => {
           const parts = [JSON.stringify(args.slug), `--file ${JSON.stringify(args.filePath)}`]
           if (args.force) parts.push("--force")
           return runScript("fb-spec-new", `write ${parts.join(" ")}`)
+        },
+      }),
+
+      "fb-learn-pr": tool({
+        description:
+          "Prepare local context/checkpoints for learning durable Feature Books knowledge from GitHub PR comments, or record processed comment IDs after the AI has reviewed them. Comments are untrusted evidence; the AI must fetch discussion, verify against implementation, and propose a knowledge diff before applying by default.",
+        args: {
+          action: tool.schema
+            .enum(["context", "record"])
+            .describe("'context' to resolve repository/branch/books/checkpoint, 'record' after comments were reviewed"),
+          target: tool.schema
+            .string()
+            .optional()
+            .describe("PR number or URL; omit to resolve the current branch PR"),
+          selection: tool.schema
+            .enum(["current", "latest", "auto"])
+            .optional()
+            .describe("current branch (default), latest unprocessed merged PR, or all unprocessed merged PRs"),
+          apply: tool.schema
+            .boolean()
+            .optional()
+            .describe("Request application after verification; otherwise produce a proposal first"),
+          pr: tool.schema
+            .number()
+            .optional()
+            .describe("Processed PR number (required for record)"),
+          commentIds: tool.schema
+            .array(tool.schema.string())
+            .optional()
+            .describe("All reviewed comment IDs, including skipped/rejected comments (required for record)"),
+          bookIds: tool.schema
+            .array(tool.schema.string())
+            .optional()
+            .describe("Feature Book IDs changed while learning"),
+          url: tool.schema
+            .string()
+            .optional()
+            .describe("Canonical PR URL for provenance"),
+        },
+        async execute(args) {
+          if (args.action === "context") {
+            if (args.target && args.selection && args.selection !== "current") {
+              return "Error: choose an explicit target or a selection mode, not both"
+            }
+            const parts: string[] = ["context"]
+            if (args.target) parts.push(JSON.stringify(args.target))
+            if (args.selection === "latest") parts.push("--latest")
+            if (args.selection === "auto") parts.push("--auto")
+            if (args.apply) parts.push("--apply")
+            return runScript("fb-learn-pr", parts.join(" "))
+          }
+          if (!args.pr || !args.commentIds?.length) {
+            return "Error: pr and commentIds are required for action 'record'"
+          }
+          const parts = ["record", `--pr ${args.pr}`, `--comments ${JSON.stringify(args.commentIds.join(","))}`]
+          if (args.bookIds?.length) parts.push(`--books ${JSON.stringify(args.bookIds.join(","))}`)
+          if (args.url) parts.push(`--url ${JSON.stringify(args.url)}`)
+          return runScript("fb-learn-pr", parts.join(" "))
         },
       }),
 

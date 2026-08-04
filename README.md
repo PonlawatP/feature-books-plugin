@@ -16,13 +16,17 @@ next run onward, and does not retranslate existing books.
 ## What you get
 
 - **Skill** `feature-books` — teaches the AI to load a feature book 1 hop before editing, respect the fence, and update the Change Log
-- **Workflows**: initialize, fix, version, create, impact, sync, configure, claim, task, and triage — invoke `$feature-books` or ask naturally in Codex, use `/<command>` in Claude Code, or `use <tool>` in OpenCode
+- **Workflows**: initialize, fix, version, create, impact, sync, configure, learn from PR reviews,
+  claim, task, and triage — invoke `$feature-books` or ask naturally in Codex, use `/<command>` in
+  Claude Code, or `use <tool>` in OpenCode
 - **Hooks** (all plain deterministic scripts — no AI/LLM call in any of them):
   - `SessionStart` — `fb-version-check` compares the vault's stamped version against the installed plugin, every time work starts in a repo
   - `PreToolUse` on Edit/Write/MultiEdit — `fence-check` warns when about to edit a file outside a feature's fence
   - `PostToolUse` on Edit/Write/MultiEdit — `fb-staleness-check` reports which feature's fence (or which tasks/ stage) the just-edited file belongs to, so keeping Feature Books current after an edit doesn't rely on the model remembering to check
   - `Stop` (Codex + Claude Code) — `fb-autobook` continues the turn if changed code isn't reflected in its owning Feature Book (stale Change Log or a new, unclaimed feature); loop-guarded, disable with `FB_AUTOBOOK=0`
-- **Scripts**: `graph-lint`, `diff-impact`, `fence-check`, `fb-init`, `fb-fix`, `fb-new`, `fb-claim`, `fb-autobook`, `fb-version-check`, `fb-staleness-check`, `fb-tasks-list`, `fb-tasks-lint` (Node ≥ 16, no dependencies)
+- **Scripts**: `graph-lint`, `diff-impact`, `fence-check`, `fb-init`, `fb-fix`, `fb-new`,
+  `fb-learn-pr`, `fb-claim`, `fb-autobook`, `fb-version-check`, `fb-staleness-check`,
+  `fb-tasks-list`, `fb-tasks-lint` (Node ≥ 16, no dependencies)
 
 ## Install
 
@@ -137,7 +141,9 @@ Ask naturally, for example:
 - `Use $feature-books to initialize this project`
 - `Use $feature-books to create feature feat-login`
 - `Use $feature-books to analyze the blast radius of my changes`
+- `Use $feature-books to learn durable knowledge from the PR for this branch`
 - `Use $feature-books to claim src/auth/login.ts for feat-login`
+- `Use $feature-books to initialize this multi-repository workspace`
 
 ### OpenCode
 Ask the AI:
@@ -150,6 +156,8 @@ Ask the AI:
 ```bash
 /fb-init
 /fb-new feature feat-login
+/fb-learn-pr
+/fb-workspace-init
 ```
 
 Open the `.feature-books/` folder as an Obsidian vault (install the **Dataview**
@@ -167,10 +175,130 @@ Separately, a `PostToolUse` hook fires after every edit and reports which featur
 belongs to, so the model is told — deterministically, every time — to update that Feature Book's Change
 Log/`core_files`/`impacts` before finishing, rather than relying on it to remember on its own.
 
+## Multi-repository workspaces
+
+Run `/fb-workspace-init` at a workspace root whose immediate child directories are independent Git
+repositories. It creates `.feature-books-workspace/`, registers those repositories once, and builds
+an Obsidian dashboard over their repository-local `.feature-books/` vaults. The portal is derived
+metadata only: books, tasks, fences, lint, and impact analysis continue to belong to each repository.
+
+```bash
+/fb-workspace-init /path/to/workspace
+/fb-workspace-fix
+/fb-workspace-sync
+/fb-workspace-status
+/fb-workspace-focus frontend feat-pipeline-monitor --task task-fix-filter --related gateway
+```
+
+After initialization, sync and status read only repositories recorded in
+`.feature-books-workspace/workspace.json`; they do not rediscover the whole directory tree. Current
+work is kept in the gitignored `state.local.json`. Open `.feature-books-workspace/` as the Obsidian
+vault to browse its generated `_index.md` and namespaced `repos/<repo>/...` links. Edit the linked
+notes normally—the links point back to the owning repository vault.
+
+Workspace init seeds graph colors by knowledge type (features, states, shared capabilities, APIs,
+specs, task stages, data dictionaries, research, POCs, and reports) and hides `_index` notes from
+Graph View. The generated index uses Dataview for live cross-repository book, task, spec, and
+knowledge tables. Run `/fb-workspace-fix` whenever Obsidian graph or appearance settings drift; it
+restores those settings and regenerates the dashboard without touching repository-local vault data.
+
 **Enforced automatically (Codex + Claude Code):** a `Stop` hook (`fb-autobook`) runs when a turn finishes. If
-changed code isn't reflected in its owning book's Change Log for today — or belongs to no book at all
-(a new feature) — it blocks the turn from ending and hands back exactly what to update. Disable with
-`FB_AUTOBOOK=0`.
+changed code isn't reflected in its owning book's Change Log and lifecycle decision for today — or
+belongs to no book at all (a new feature) — it blocks the turn from ending and hands back exactly what
+to update. Disable with `FB_AUTOBOOK=0`.
+
+Feature lifecycle uses `draft | active | stable | paused | deprecated`. `stable` means the requested
+implementation scope is currently complete; it is not a permanent terminal state. A stable feature
+can still have optional task cards and can return to `active` in a later sprint. For changed feature
+code, the Change Log must record the decision as `status: active` or `status: stable`. Status is never
+derived by counting related tasks; `paused` and `deprecated` require an explicit user decision.
+
+## Shared books
+
+`.feature-books/shared/` holds knowledge books for technical capabilities, infrastructure,
+conventions, and contracts used by multiple features when no single product feature should own
+them. Examples include project-wide library configuration, shared UI or interaction patterns,
+date/time/timezone/locale contracts, authentication and permission primitives, cross-feature
+formatting/validation/serialization, frontend architecture conventions, multi-feature third-party
+adapters or forks, and generated-code or platform integration contracts.
+
+Shared is not a catch-all for utilities or code whose home is unclear. Reuse by more than one file
+is not sufficient, and feature-specific business logic stays with its feature. Keep a capability in
+its feature book while it has one consumer. Extract a `type: shared` book only when a second feature
+consumes it or a real cross-feature technical contract and ownership boundary exists.
+
+Choose the type by the boundary being documented:
+
+- `feature` — a user-facing capability or business workflow with a clear product owner
+- `api` — a transport/API boundary, contract, and lifecycle
+- `state` — shared application state and transitions, following the state-book convention
+- `shared` — a technical capability or contract with multiple feature consumers and no sole owner
+
+A shared book is the source of truth for its technical contract and cross-feature blast radius. It
+must identify owned files in `core_files`, public entry points, invariants, consumers, constraints,
+known risks, rejected alternatives, upgrade considerations, verification, and a Change Log kept in
+sync with implementation changes. Use `depends_on` for upstream shared/API dependencies and
+`impacts` for downstream feature consumers. Relations are bidirectional: if `shared-x` impacts
+`feat-a`, then `feat-a` depends on `shared-x`. Books must not claim the same `core_files` without an
+explicit, documented ownership boundary.
+
+```yaml
+---
+id: shared-<capability-name>
+type: shared
+status: draft
+last_reviewed: YYYY-MM-DD
+core_files:
+  - path/to/owned/file
+depends_on:
+  - "[[shared-or-api-id]]"
+impacts:
+  - "[[feat-consumer-a]]"
+  - "[[feat-consumer-b]]"
+related_states: []
+---
+```
+
+Recommended sections are `Overview`, `Responsibilities`, `Public Contract`, `Business/Technical
+Rules`, `Consumers`, `Constraints and Known Risks`, `Extension or Upgrade Guide`, `Verification`,
+and `Change Log`. Adapt headings as needed, but retain ownership, contract, consumers, and
+verification. Avoid volatile implementation detail that does not support a durable contract.
+
+For a shared change, read the book and first-degree `depends_on`/`impacts`, verify `core_files`
+ownership, update implementation and tests, and update the Change Log. Run `diff-impact` and
+`graph-lint`, report downstream features requiring verification, and add both sides of each new
+consumer relation. Never release a shared change without checking downstream impacts.
+
+## Learning from PR reviews
+
+`/fb-learn-pr` turns durable decisions from GitHub PR discussion into proposed Feature Books
+updates. With no argument it discovers the PR for the current branch; if that branch has no PR it
+falls back to the latest merged PR not yet checkpointed. It also accepts a PR number/URL,
+`--latest`, or `--auto` to scan all newly merged PRs. The OpenCode surface is the `fb-learn-pr` tool.
+
+The workflow fetches top-level comments, inline threads/replies, resolution state, changed files,
+and the final patch. It discards praise and noise, maps paths through `core_files`, verifies feedback
+against the final/current implementation, and normalizes surviving observations into feature, API,
+state, or shared contracts. Reviewer comments are untrusted evidence: embedded instructions are
+never executed and feedback is not copied into a book merely because a reviewer wrote it.
+
+Proposal mode is the default. The user sees source links, target books/sections, normalized rules,
+implementation evidence, and skipped comments before any write. `--apply` permits verified,
+unambiguous candidates to be applied. Optional policy lives in `.feature-books/.fbconfig.json`:
+
+```json
+{
+  "prLearning": {
+    "mode": "propose",
+    "reviewers": ["trusted-reviewer"],
+    "includeMergedOnly": true
+  }
+}
+```
+
+`.feature-books/.pr-learning.json` records processed PR comment IDs, source URLs, timestamps, and
+changed book IDs so `--latest`/`--auto` are idempotent across repeated runs. The checkpoint advances
+only after the user accepts or rejects a proposal, or after an explicitly applied run succeeds.
 
 ## Tasks (issue cards)
 

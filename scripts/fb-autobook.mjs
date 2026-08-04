@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // Auto-book: after a turn that changed code, make sure the Feature Books reflect it.
-// A NEW feature gets a new book; a CHANGED feature gets a fresh Change Log entry.
+// A NEW feature gets a new book; a CHANGED feature gets a fresh Change Log entry and an explicit
+// lifecycle decision. Feature status reflects the implementation scope completed in this turn,
+// never the completion of every related task card.
 // The user never has to run /fb-new, /fb-claim or /fb-impact by hand.
 //
 // Three runtimes, one brain (analyze()):
@@ -71,6 +73,20 @@ function changelogHasDate(repoRoot, note, date) {
   return region.includes(date);
 }
 
+// Feature changes must record the lifecycle decision made for this implementation scope. This is
+// intentionally explicit: a deterministic hook cannot infer whether the user's requested scope is
+// complete, and unrelated optional task cards must not keep a feature active.
+function changelogHasStatusDecision(repoRoot, note, date) {
+  let txt;
+  try { txt = fs.readFileSync(path.join(repoRoot, note.file), "utf8"); }
+  catch { return false; }
+  const idx = txt.toLowerCase().indexOf("## change log");
+  const region = idx >= 0 ? txt.slice(idx) : txt;
+  return region
+    .split(/\r?\n/)
+    .some((line) => line.includes(date) && /status\s*:\s*(active|stable|paused|deprecated)\b/i.test(line));
+}
+
 function readLanguage(vault) {
   try {
     const cfg = JSON.parse(fs.readFileSync(path.join(vault, ".fbconfig.json"), "utf8"));
@@ -111,8 +127,17 @@ function pendingSet(repoRoot, vault, changed, today) {
     const owners = ownersOf(f, notes);
     if (owners.length) {
       for (const o of owners) {
-        if (changelogHasDate(repoRoot, o, today)) continue; // book already touched today
-        if (!stale.has(o.id)) stale.set(o.id, { title: o.title, file: o.file, files: new Set() });
+        const hasFreshLog = changelogHasDate(repoRoot, o, today);
+        const hasLifecycleDecision = o.type !== "feature" || changelogHasStatusDecision(repoRoot, o, today);
+        if (hasFreshLog && hasLifecycleDecision) continue; // book already reconciled today
+        if (!stale.has(o.id)) stale.set(o.id, {
+          title: o.title,
+          file: o.file,
+          type: o.type,
+          status: o.status,
+          hasFreshLog,
+          files: new Set(),
+        });
         stale.get(o.id).files.add(f);
       }
     } else if (CODE_EXT.has(path.extname(f).toLowerCase())) {
@@ -124,7 +149,7 @@ function pendingSet(repoRoot, vault, changed, today) {
 
 function buildMessage({ orphans, stale, today, language }) {
   const L = [];
-  L.push("[feature-books] Update the Feature Book(s) before ending this turn.");
+  L.push("[feature-books] Reconcile the Feature Book(s) before ending this turn.");
   L.push("");
   L.push(
     `You changed code but the matching Feature Book(s) don't reflect it yet. ` +
@@ -135,14 +160,27 @@ function buildMessage({ orphans, stale, today, language }) {
 
   if (stale.size) {
     L.push("");
-    L.push(`Changed features missing a Change Log entry for ${today}:`);
+    L.push(`Changed books missing a fresh Change Log and/or feature lifecycle decision for ${today}:`);
     for (const [id, v] of stale) {
       const files = [...v.files].join(", ");
       L.push(`  • ${id}${v.title ? ` (${v.title})` : ""} — ${files}`);
-      L.push(
-        `    → In ${v.file}: add a Change Log row "| ${today} | <what changed> |", ` +
-        `and refresh Business Rules / State Flow / Edge Cases if the logic changed.`
-      );
+      if (v.type === "feature") {
+        L.push(
+          `    → Reconcile the implementation lifecycle for THIS requested scope (current status: ${v.status || "missing"}). ` +
+          `Use status: stable when the requested scope completed successfully, or status: active when it remains unfinished. ` +
+          `A stable feature may still have unrelated/optional task cards and may become active again in a later sprint. ` +
+          `Do not derive feature status by counting related tasks. Use paused or deprecated only when the user explicitly decided that.`
+        );
+        L.push(
+          `    → In ${v.file}: set the frontmatter status and add a Change Log row ` +
+          `"| ${today} | <what changed>; status: <active|stable> |". Refresh Business Rules / State Flow / Edge Cases if logic changed.`
+        );
+      } else {
+        L.push(
+          `    → In ${v.file}: add a Change Log row "| ${today} | <what changed> |", ` +
+          `and refresh Business Rules / State Flow / Edge Cases if the logic changed.`
+        );
+      }
     }
   }
 

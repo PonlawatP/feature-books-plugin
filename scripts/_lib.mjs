@@ -107,6 +107,20 @@ export function findVaultDir(start = process.cwd()) {
   }
 }
 
+// Read the configured prose language for every workflow that creates or edits docs.
+// Keep the fallback here so deterministic scripts and AI-driven commands agree.
+export function readContentLanguage(vaultDir = findVaultDir()) {
+  if (!vaultDir) return "English";
+  try {
+    const config = JSON.parse(fs.readFileSync(path.join(vaultDir, ".fbconfig.json"), "utf8"));
+    return typeof config.language === "string" && config.language.trim()
+      ? config.language.trim()
+      : "English";
+  } catch {
+    return "English";
+  }
+}
+
 // repo root = the folder that contains .feature-books
 export function findRepoRoot(start = process.cwd()) {
   const v = findVaultDir(start);
@@ -199,6 +213,10 @@ export function loadNotes(vaultDir = findVaultDir()) {
 export const TASK_KINDS = ["feature", "enhancement", "bug", "note"];
 export const TASK_STATUSES = ["new", "triaged", "in-progress", "done"];
 export const TASK_EFFORTS = ["S", "M", "L", "XL"];
+// Feature status describes the current implementation lifecycle, not whether every related
+// task card is done. A stable feature may still have optional enhancements in the backlog and
+// can return to active in a later sprint.
+export const FEATURE_STATUSES = ["draft", "active", "stable", "paused", "deprecated"];
 // Which status a card is expected to carry given which tasks/ subfolder it physically lives in —
 // used by fb-tasks-lint.mjs to catch drift after a manual drag that forgot to update frontmatter.
 export const TASK_FOLDER_STATUS = { issues: "new", decisions: "triaged", action: "in-progress", done: "done" };

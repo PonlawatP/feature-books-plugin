@@ -11,13 +11,20 @@ prose that doesn't follow the `## Description` / `## Logic Spec / Steps` heading
 convert these into the standard format too, not just cards that already look right.
 
 Steps:
-1. Run `node "${CLAUDE_PLUGIN_ROOT}/scripts/fb-tasks-list.mjs" --inbox --json` to get every card
+1. Run `node "${CLAUDE_PLUGIN_ROOT}/scripts/fb-config.mjs" get` and save the returned language.
+   Do this **before drafting or editing any prose**. Write all newly created or rewritten prose,
+   including inferred titles, descriptions, logic steps, and triage notes, in that language.
+   Preserve user-authored prose when normalization only moves it between sections. Keep ids,
+   tags, paths, code, enum values, and schema keys unchanged. Do not infer the document language
+   from the user's current message when it differs from the configured value. Translate newly
+   created Markdown section headings too; the English names below describe the template structure.
+2. Run `node "${CLAUDE_PLUGIN_ROOT}/scripts/fb-tasks-list.mjs" --inbox --json` to get every card
    **physically located in `tasks/issues/`**, regardless of its `status` field or whether it has
    frontmatter at all — folder location, not the status field, is what makes something "inbox".
    Don't rely on globbing yourself; this is the authoritative list, and it flags `hasFrontmatter`
    and `needsNormalization` per card so you know which ones need the heavier rewrite below.
-2. If the list is empty → tell the user the inbox is empty and stop.
-3. For **each** card, read the full file, then:
+3. If the list is empty → tell the user the inbox is empty and stop.
+4. For **each** card, read the full file, then:
    a. **Normalize the format.** Bring the file to the standard shape:
       - frontmatter: `id`, `title`, `kind`, `status`, `effort`, `related`, `created`.
       - `id`: if missing, or if it doesn't match the file's own name, generate `task-<kebab-case
@@ -55,10 +62,10 @@ Steps:
    e. **Move** the file with `mv` from `tasks/issues/<old name>.md` to `tasks/decisions/<id>.md`
       (renaming it to the normalized `id` if it wasn't already named that) — editing the frontmatter
       is not enough, the card must physically move.
-4. After all cards are processed, run `node "${CLAUDE_PLUGIN_ROOT}/scripts/fb-tasks-lint.mjs"` and
+5. After all cards are processed, run `node "${CLAUDE_PLUGIN_ROOT}/scripts/fb-tasks-lint.mjs"` and
    `node "${CLAUDE_PLUGIN_ROOT}/scripts/graph-lint.mjs"`. Fix any ERRORS before reporting done.
-5. Summarize to the user, per card: title, kind, effort, related features found, and confirm it's
+6. Summarize to the user, per card: title, kind, effort, related features found, and confirm it's
    now in `tasks/decisions/` (mention if it was renamed). List any cards you skipped and why.
-6. Remind the user explicitly: this command only moves `issues/` → `decisions/`. Moving a card from
+7. Remind the user explicitly: this command only moves `issues/` → `decisions/`. Moving a card from
    `decisions/` to `action/` (once they confirm they'll work on it) or from `action/` to `done/`
    (once it's complete) is a manual drag they do themselves — `/fb-triage` never does either move.

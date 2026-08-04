@@ -9,7 +9,7 @@
 //   node fb-spec-new.mjs write <slug> --file <path-to-drafted-markdown> [--force]
 import fs from "node:fs";
 import path from "node:path";
-import { findVaultDir, loadNotes } from "./_lib.mjs";
+import { findVaultDir, loadNotes, readContentLanguage } from "./_lib.mjs";
 
 const [sub, ...rest] = process.argv.slice(2);
 
@@ -56,6 +56,7 @@ if (sub === "check") {
   const slug = slugify(topic);
   const specPath = path.join(vault, "specs", `${slug}.md`);
   const specExists = fs.existsSync(specPath);
+  const language = readContentLanguage(vault);
 
   // Keyword match against existing Feature Books' ids/titles. loadNotes() already excludes
   // tasks/ and specs/ — specs are not graph nodes, so they never show up here as a "match".
@@ -83,6 +84,7 @@ if (sub === "check") {
         slug,
         specPath: path.join(".feature-books", "specs", `${slug}.md`),
         specExists,
+        language,
         matchingFeatureBooks: matches,
         note:
           matches.length === 0

@@ -12,6 +12,9 @@ Steps:
 1. Run `node "${CLAUDE_PLUGIN_ROOT}/scripts/fb-spec-new.mjs" check "$ARGUMENTS"` to get a JSON
    report: whether a spec already exists at that slug, and whether any Feature Book(s) already
    match the topic by id/title keywords.
+   - Read the report's `language` field **before drafting or editing any prose**. Write the entire
+     spec in that language. Keep ids, paths, code, and other technical literals unchanged. Do not
+     infer the language from the user's current message when it differs from this configured value.
    - If `specExists` is true, tell the user and ask whether they want to refresh it (read the
      existing spec first so you know what would actually change) before drafting anything new.
 
@@ -39,7 +42,8 @@ Steps:
      the exception to this project's normal spec-first flow, not the rule.
    - Draft the spec from the Feature Book content.
 
-3. Draft the spec using this structure (same as `.feature-books/specs/pipeline-monitor.md`):
+3. Draft the spec in the configured `language` using this structure (translate the headings too;
+   the English labels below describe the structure, not the required output language):
    ```
    # <Feature name> — Product Spec
 

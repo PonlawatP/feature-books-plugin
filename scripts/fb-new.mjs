@@ -72,36 +72,55 @@ const lines = ["---", `id: ${id}`, `type: ${type}`, `status: draft`, `last_revie
 if (title) lines.push(`title: ${title}`);
 
 // depends_on / impacts use Obsidian wikilinks so the graph draws edges; fences are plain.
-const writeLinks = (key, vals) => {
-  if (!vals.length) return;
+const writeLinks = (key, vals, includeEmpty = false) => {
+  if (!vals.length) {
+    if (includeEmpty) lines.push(`${key}: []`);
+    return;
+  }
   lines.push(`${key}:`);
   vals.forEach((v) => lines.push(`  - "[[${v}]]"`));
 };
-const writePlain = (key, vals) => {
-  if (!vals.length) return;
+const writePlain = (key, vals, includeEmpty = false) => {
+  if (!vals.length) {
+    if (includeEmpty) lines.push(`${key}: []`);
+    return;
+  }
   lines.push(`${key}:`);
   vals.forEach((v) => lines.push(`  - ${v}`));
 };
-writeLinks("depends_on", depends_on);
-writeLinks("impacts", impacts);
-writePlain("core_files", core_files);
-writePlain("related_states", related_states);
+if (type === "shared") {
+  // Make the complete shared ownership/relationship contract visible even before it is filled in.
+  writePlain("core_files", core_files, true);
+  writeLinks("depends_on", depends_on, true);
+  writeLinks("impacts", impacts, true);
+  writePlain("related_states", related_states, true);
+} else {
+  // Preserve the compact legacy template for existing book types.
+  writeLinks("depends_on", depends_on);
+  writeLinks("impacts", impacts);
+  writePlain("core_files", core_files);
+  writePlain("related_states", related_states);
+}
+
+lines.push("---", "", `# ${title || id}`, "");
+
+if (type === "shared") {
+  lines.push(
+    "## Overview", "", `<!-- Describe the shared capability and why it is cross-feature, in ${language} -->`, "",
+    "## Responsibilities", "", `<!-- State ownership and invariants, in ${language} -->`, "",
+    "## Public Contract", "", `<!-- Document supported entry points and consumer boundaries, in ${language} -->`, "",
+    "## Business/Technical Rules", "", `<!-- Record rules every consumer must follow, in ${language} -->`, "",
+    "## Consumers", "", `<!-- List consumers and keep impacts/depends_on bidirectional, in ${language} -->`, "",
+    "## Constraints and Known Risks", "", `<!-- Include rejected alternatives where material, in ${language} -->`, "",
+    "## Extension or Upgrade Guide", "", `<!-- Record compatibility and migration considerations, in ${language} -->`, "",
+    "## Verification", "", `<!-- Describe tests and downstream checks, in ${language} -->`, ""
+  );
+} else {
+  lines.push("## Business Rules", "", `<!-- Describe the business logic here, in ${language} -->`, "");
+}
 
 lines.push(
-  "---",
-  "",
-  `# ${title || id}`,
-  "",
-  "## Business Rules",
-  "",
-  `<!-- Describe the business logic here, in ${language} -->`,
-  "",
-  "## Change Log",
-  "",
-  "| Date | Change |",
-  "|------|--------|",
-  `| ${today} | Created |`,
-  ""
+  "## Change Log", "", "| Date | Change |", "|------|--------|", `| ${today} | Created |`, ""
 );
 
 fs.writeFileSync(filePath, lines.join("\n"));
