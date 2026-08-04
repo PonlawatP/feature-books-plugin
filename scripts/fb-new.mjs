@@ -116,6 +116,53 @@ function findNoteFile(linkedId) {
   return null;
 }
 
+// Merge a reciprocal "[[id]]" link into `field` (depends_on/impacts) of an existing note's
+// frontmatter. Always re-reads and re-scans the note's actual current lines first — never
+// assumes the field is missing/empty just because a loose regex didn't match it — so it
+// handles all the shapes the field can already be in: absent, `field: []`, `field: [a, b]`
+// (inline), or an existing multi-line `field:\n  - a\n  - b` list. Returns null if nothing
+// changed (already linked, or no frontmatter found).
+function mergeReciprocalLink(content, field, newId) {
+  if (content.includes(`[[${newId}]]`)) return null; // already linked somewhere in the file
+
+  const lines = content.split("\n");
+  let fmEnd = -1;
+  let fieldIdx = -1;
+  let lastItemIdx = -1;
+  for (let i = 1; i < lines.length; i++) {
+    if (lines[i].trim() === "---") { fmEnd = i; break; }
+    const trimmed = lines[i].trimStart();
+    if (trimmed.startsWith(`${field}:`)) {
+      fieldIdx = i;
+      lastItemIdx = i;
+    } else if (fieldIdx >= 0 && trimmed.startsWith("- ")) {
+      lastItemIdx = i;
+    }
+  }
+  if (fmEnd < 0) return null; // no frontmatter — don't guess, leave the file alone
+
+  if (fieldIdx < 0) {
+    // field doesn't exist at all yet -> add a fresh block right after the opening "---"
+    lines.splice(1, 0, `${field}:`, `  - "[[${newId}]]"`);
+    return lines.join("\n");
+  }
+
+  const headerLine = lines[fieldIdx];
+  const inlineMatch = headerLine.match(/^(\s*)([A-Za-z_][\w-]*:)\s*\[(.*)\]\s*$/);
+  if (inlineMatch) {
+    // `field: []` or `field: [a, b]` (inline array) -> expand to a multi-line list
+    const [, indent, key, inner] = inlineMatch;
+    const existing = inner.split(",").map((s) => s.trim()).filter(Boolean);
+    const expanded = [`${indent}${key}`, ...existing.map((v) => `${indent}  - ${v}`), `${indent}  - "[[${newId}]]"`];
+    lines.splice(fieldIdx, 1, ...expanded);
+    return lines.join("\n");
+  }
+
+  // field already a multi-line list (with or without existing items) -> append after the last item
+  lines.splice(lastItemIdx + 1, 0, `  - "[[${newId}]]"`);
+  return lines.join("\n");
+}
+
 for (const linkedId of [...depends_on, ...impacts]) {
   const linkedFile = findNoteFile(linkedId);
   if (!linkedFile) {
@@ -125,13 +172,8 @@ for (const linkedId of [...depends_on, ...impacts]) {
   const content = fs.readFileSync(linkedFile, "utf8");
   // if A impacts B, then B must depends_on A (and vice versa)
   const field = impacts.includes(linkedId) ? "depends_on" : "impacts";
-  if (content.includes(`[[${id}]]`)) continue; // already linked
-  let updated;
-  if (new RegExp(`^${field}:\\s*$`, "m").test(content)) {
-    updated = content.replace(new RegExp(`(^${field}:\\s*$)`, "m"), `$1\n  - "[[${id}]]"`);
-  } else {
-    updated = content.replace(/^---\n/, `---\n${field}:\n  - "[[${id}]]"\n`);
-  }
+  const updated = mergeReciprocalLink(content, field, id);
+  if (updated === null) continue; // already linked, or file had no frontmatter to merge into
   fs.writeFileSync(linkedFile, updated);
   console.log(`  ✓ linked back: ${linkedId} ${field} ${id}`);
 }

@@ -45,8 +45,11 @@ async function readPayload() {
 function changedFiles(repoRoot) {
   let out;
   try {
+    // Strip only trailing newlines — a plain .trim() would eat the leading
+    // space of the first porcelain line (e.g. " M src/…"), shifting slice(3)
+    // by one char and corrupting the path ("src" -> "rc").
     out = execSync("git status --porcelain --untracked-files=all", { cwd: repoRoot })
-      .toString().trim();
+      .toString().replace(/[\r\n]+$/, "");
   } catch {
     return null; // not a git repo / git missing -> can't detect -> don't block
   }

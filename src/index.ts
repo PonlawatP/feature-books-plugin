@@ -170,6 +170,42 @@ export default (async ({ client, directory }: PluginInput) => {
         },
       }),
 
+      "fb-spec-new": tool({
+        description:
+          "Check whether a plain-language product spec and/or a matching Feature Book already exists for a topic under .feature-books/specs/, or write a drafted spec there. The AI does the reading/interviewing/drafting; this tool only does the existence check and the final write.",
+        args: {
+          action: tool.schema
+            .enum(["check", "write"])
+            .describe("'check' to look up an existing spec and matching Feature Books, 'write' to save a drafted spec"),
+          slug: tool.schema
+            .string()
+            .describe("Kebab-case spec id for 'write', or a free-text topic for 'check' (e.g. \"pipeline monitor\")"),
+          type: tool.schema
+            .enum(["feature", "state", "shared", "api"])
+            .optional()
+            .describe("Restrict 'check' matches to this Feature Book type"),
+          filePath: tool.schema
+            .string()
+            .optional()
+            .describe("Path to the drafted markdown file (required for 'write')"),
+          force: tool.schema
+            .boolean()
+            .optional()
+            .describe("Overwrite an existing spec (for 'write')"),
+        },
+        async execute(args) {
+          if (args.action === "check") {
+            const parts = [JSON.stringify(args.slug)]
+            if (args.type) parts.push(`--type ${args.type}`)
+            return runScript("fb-spec-new", `check ${parts.join(" ")}`)
+          }
+          if (!args.filePath) return "Error: filePath is required for action 'write'"
+          const parts = [JSON.stringify(args.slug), `--file ${JSON.stringify(args.filePath)}`]
+          if (args.force) parts.push("--force")
+          return runScript("fb-spec-new", `write ${parts.join(" ")}`)
+        },
+      }),
+
       "fb-claim": tool({
         description:
           "Add a file to a feature book's core_files fence. Use after creating/editing files outside the fence. The AI will auto-run this after edits if a file falls outside any feature's core_files.",
