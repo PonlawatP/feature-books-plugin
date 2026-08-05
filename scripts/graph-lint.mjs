@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Graph health check: are relations bidirectional, do links point to real ids, does id match filename?
-import { loadNotes, findVaultDir } from "./_lib.mjs";
+import { FEATURE_STATUSES, loadNotes, findVaultDir } from "./_lib.mjs";
 import path from "node:path";
 
 const vault = findVaultDir();
@@ -15,6 +15,10 @@ for (const n of notes) {
   // id must match the filename
   const base = path.basename(n.file, ".md");
   if (n.id !== base) errors.push(`${n.file}: id "${n.id}" does not match filename "${base}"`);
+
+  if (n.type === "feature" && !FEATURE_STATUSES.includes(n.status)) {
+    errors.push(`${n.file}: feature status "${n.status}" is not one of ${FEATURE_STATUSES.join("|")}`);
+  }
 
   // links must point to existing nodes
   for (const dep of [...n.depends_on, ...n.impacts]) {

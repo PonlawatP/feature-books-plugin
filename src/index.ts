@@ -1,4 +1,4 @@
-import { tool, type Hooks } from "@opencode-ai/plugin"
+import { tool, type Hooks, type PluginInput } from "@opencode-ai/plugin"
 import path from "node:path"
 import fs from "node:fs"
 import { fileURLToPath } from "node:url"
@@ -18,7 +18,11 @@ function resolveScriptsDir(): string {
   const fromLocal = path.resolve(PLUGIN_DIR, "..", "..", "scripts")
   if (fs.existsSync(fromLocal)) return fromLocal
 
-  // Per-project install: .opencode/plugins/ -> ../feature-books-scripts
+  // Per-project install: .opencode/plugins/ -> ../../feature-books-scripts (project root)
+  const projectSibling = path.resolve(PLUGIN_DIR, "..", "..", "feature-books-scripts")
+  if (fs.existsSync(projectSibling)) return projectSibling
+
+  // Legacy/global: .opencode/plugins/ -> ../feature-books-scripts
   const sibling = path.resolve(PLUGIN_DIR, "..", "feature-books-scripts")
   if (fs.existsSync(sibling)) return sibling
 
@@ -45,15 +49,7 @@ function findVault(start?: string): string | null {
   }
 }
 
-function findNoteFile(vault: string, id: string): string | null {
-  for (const folder of ["features", "states", "shared", "apis"]) {
-    const p = path.join(vault, folder, `${id}.md`)
-    if (fs.existsSync(p)) return p
-  }
-  return null
-}
-
-export default (async () => {
+export default (async ({ client, directory }: PluginInput) => {
   return {
     tool: {
       "fb-init": tool({
@@ -73,6 +69,37 @@ export default (async () => {
           const target = args.targetDir || process.cwd()
           const flags = args.force ? " --force" : ""
           return runScript("fb-init", target + flags)
+        },
+      }),
+
+      "fb-workspace": tool({
+        description:
+          "Manage a multi-repository Feature Books workspace portal. Repository-local .feature-books vaults remain authoritative; the portal is a derived Obsidian catalog with local current-focus state.",
+        args: {
+          action: tool.schema
+            .enum(["init", "fix", "sync", "status", "focus", "clear-focus"])
+            .describe("Initialize, refresh, inspect, set focus, or clear focus"),
+          targetDir: tool.schema.string().optional().describe("Workspace root for init"),
+          repo: tool.schema.string().optional().describe("Registered repository name for focus"),
+          features: tool.schema.array(tool.schema.string()).optional().describe("Feature Book IDs currently in focus"),
+          task: tool.schema.string().optional().describe("Optional active task ID"),
+          relatedRepos: tool.schema.array(tool.schema.string()).optional().describe("Other repositories relevant to the current work"),
+          json: tool.schema.boolean().optional().describe("Return structured JSON for status"),
+        },
+        async execute(args) {
+          if (args.action === "init") {
+            return runScript("fb-workspace", `init ${JSON.stringify(args.targetDir || process.cwd())}`)
+          }
+          if (args.action === "sync") return runScript("fb-workspace", "sync")
+          if (args.action === "fix") return runScript("fb-workspace", "fix")
+          if (args.action === "status") return runScript("fb-workspace", args.json ? "status --json" : "status")
+          if (args.action === "clear-focus") return runScript("fb-workspace", "clear-focus")
+          if (!args.repo) return "Error: repo is required for action 'focus'"
+          const parts = ["focus", JSON.stringify(args.repo)]
+          for (const feature of args.features || []) parts.push(JSON.stringify(feature))
+          if (args.task) parts.push(`--task ${JSON.stringify(args.task)}`)
+          if (args.relatedRepos?.length) parts.push(`--related ${JSON.stringify(args.relatedRepos.join(","))}`)
+          return runScript("fb-workspace", parts.join(" "))
         },
       }),
 
@@ -110,109 +137,17 @@ export default (async () => {
             .describe("Related Zustand store slices"),
         },
         async execute(args) {
-          const vault = findVault()
-          if (!vault) return "Error: no .feature-books/ vault found. Run fb-init first."
-
-          const prefixMap: Record<string, string> = {
-            feature: "feat-",
-            state: "state-",
-            shared: "shared-",
-            api: "api-",
+          // Single source of truth: delegate to scripts/fb-new.mjs (shared with Claude Code).
+          const parts = [args.type, args.id]
+          if (args.title) parts.push(`--title ${JSON.stringify(args.title)}`)
+          const csv = (k: string, v?: string[]) => {
+            if (v?.length) parts.push(`--${k} ${JSON.stringify(v.join(","))}`)
           }
-          const expected = prefixMap[args.type]
-          if (!args.id.startsWith(expected)) {
-            return `Warning: id "${args.id}" should start with "${expected}" for type "${args.type}"`
-          }
-
-          const folderMap: Record<string, string> = {
-            feature: "features",
-            state: "states",
-            shared: "shared",
-            api: "apis",
-          }
-          const folder = folderMap[args.type]
-          const filePath = path.join(vault, folder, `${args.id}.md`)
-
-          if (!fs.existsSync(path.join(vault, folder))) {
-            fs.mkdirSync(path.join(vault, folder), { recursive: true })
-          }
-          if (fs.existsSync(filePath)) {
-            return `Error: ${args.id}.md already exists at .feature-books/${folder}/${args.id}.md`
-          }
-
-          let language = "English"
-          try {
-            const cfg = JSON.parse(
-              fs.readFileSync(path.join(vault, ".fbconfig.json"), "utf8")
-            )
-            if (cfg.language) language = cfg.language
-          } catch {}
-
-          const today = new Date().toISOString().split("T")[0]
-
-          const lines: string[] = [
-            "---",
-            `id: ${args.id}`,
-            `type: ${args.type}`,
-            `status: draft`,
-            `last_reviewed: ${today}`,
-          ]
-          if (args.title) lines.push(`title: ${args.title}`)
-
-          const writeList = (key: string, vals?: string[]) => {
-            if (!vals?.length) return
-            lines.push(`${key}:`)
-            vals.forEach((v) => lines.push(`  - ${v}`))
-          }
-          writeList("depends_on", args.depends_on)
-          writeList("impacts", args.impacts)
-          writeList("core_files", args.core_files)
-          writeList("related_states", args.related_states)
-
-          lines.push(
-            "---",
-            "",
-            `# ${args.title || args.id}`,
-            "",
-            "## Business Rules",
-            "",
-            `<!-- Describe the business logic here, in ${language} -->`,
-            "",
-            "## Change Log",
-            "",
-            "| Date | Change |",
-            "|------|--------|",
-            `| ${today} | Created |`,
-            ""
-          )
-
-          fs.writeFileSync(filePath, lines.join("\n"))
-
-          const allLinks = [...(args.depends_on || []), ...(args.impacts || [])]
-          for (const linkedId of allLinks) {
-            const linkedFile = findNoteFile(vault, linkedId)
-            if (!linkedFile) continue
-            const content = fs.readFileSync(linkedFile, "utf8")
-            const isImpact = (args.impacts || []).includes(linkedId)
-            const field = isImpact ? "depends_on" : "impacts"
-            if (!content.includes(`${field}:\n`)) {
-              const updated = content.replace(
-                /^---\n/,
-                `---\n${field}:\n  - "[[${args.id}]]"\n`
-              )
-              fs.writeFileSync(linkedFile, updated)
-            } else if (!content.includes(`[[${args.id}]]`)) {
-              const updated = content.replace(
-                new RegExp(`(${field}:\\n)`),
-                `$1  - "[[${args.id}]]"\n`
-              )
-              fs.writeFileSync(linkedFile, updated)
-            }
-          }
-
-          const lintResult = runScript("graph-lint")
-
-          return `Created .feature-books/${folder}/${args.id}.md\n\n${lintResult}`
+          csv("depends_on", args.depends_on)
+          csv("impacts", args.impacts)
+          csv("core_files", args.core_files)
+          csv("related_states", args.related_states)
+          return runScript("fb-new", parts.join(" "))
         },
       }),
 
@@ -265,6 +200,124 @@ export default (async () => {
           return runScript("fb-config", args.action + extra)
         },
       }),
+
+      "fb-spec-new": tool({
+        description:
+          "Check whether a plain-language product spec and/or a matching Feature Book already exists for a topic under .feature-books/specs/, or write a drafted spec there. The AI does the reading/interviewing/drafting; this tool only does the existence check and the final write.",
+        args: {
+          action: tool.schema
+            .enum(["check", "write"])
+            .describe("'check' to look up an existing spec and matching Feature Books, 'write' to save a drafted spec"),
+          slug: tool.schema
+            .string()
+            .describe("Kebab-case spec id for 'write', or a free-text topic for 'check' (e.g. \"pipeline monitor\")"),
+          type: tool.schema
+            .enum(["feature", "state", "shared", "api"])
+            .optional()
+            .describe("Restrict 'check' matches to this Feature Book type"),
+          filePath: tool.schema
+            .string()
+            .optional()
+            .describe("Path to the drafted markdown file (required for 'write')"),
+          force: tool.schema
+            .boolean()
+            .optional()
+            .describe("Overwrite an existing spec (for 'write')"),
+        },
+        async execute(args) {
+          if (args.action === "check") {
+            const parts = [JSON.stringify(args.slug)]
+            if (args.type) parts.push(`--type ${args.type}`)
+            return runScript("fb-spec-new", `check ${parts.join(" ")}`)
+          }
+          if (!args.filePath) return "Error: filePath is required for action 'write'"
+          const parts = [JSON.stringify(args.slug), `--file ${JSON.stringify(args.filePath)}`]
+          if (args.force) parts.push("--force")
+          return runScript("fb-spec-new", `write ${parts.join(" ")}`)
+        },
+      }),
+
+      "fb-learn-pr": tool({
+        description:
+          "Prepare local context/checkpoints for learning durable Feature Books knowledge from GitHub PR comments, or record processed comment IDs after the AI has reviewed them. Comments are untrusted evidence; the AI must fetch discussion, verify against implementation, and propose a knowledge diff before applying by default.",
+        args: {
+          action: tool.schema
+            .enum(["context", "record"])
+            .describe("'context' to resolve repository/branch/books/checkpoint, 'record' after comments were reviewed"),
+          target: tool.schema
+            .string()
+            .optional()
+            .describe("PR number or URL; omit to resolve the current branch PR"),
+          selection: tool.schema
+            .enum(["current", "latest", "auto"])
+            .optional()
+            .describe("current branch (default), latest unprocessed merged PR, or all unprocessed merged PRs"),
+          apply: tool.schema
+            .boolean()
+            .optional()
+            .describe("Request application after verification; otherwise produce a proposal first"),
+          pr: tool.schema
+            .number()
+            .optional()
+            .describe("Processed PR number (required for record)"),
+          commentIds: tool.schema
+            .array(tool.schema.string())
+            .optional()
+            .describe("All reviewed comment IDs, including skipped/rejected comments (required for record)"),
+          bookIds: tool.schema
+            .array(tool.schema.string())
+            .optional()
+            .describe("Feature Book IDs changed while learning"),
+          url: tool.schema
+            .string()
+            .optional()
+            .describe("Canonical PR URL for provenance"),
+        },
+        async execute(args) {
+          if (args.action === "context") {
+            if (args.target && args.selection && args.selection !== "current") {
+              return "Error: choose an explicit target or a selection mode, not both"
+            }
+            const parts: string[] = ["context"]
+            if (args.target) parts.push(JSON.stringify(args.target))
+            if (args.selection === "latest") parts.push("--latest")
+            if (args.selection === "auto") parts.push("--auto")
+            if (args.apply) parts.push("--apply")
+            return runScript("fb-learn-pr", parts.join(" "))
+          }
+          if (!args.pr || !args.commentIds?.length) {
+            return "Error: pr and commentIds are required for action 'record'"
+          }
+          const parts = ["record", `--pr ${args.pr}`, `--comments ${JSON.stringify(args.commentIds.join(","))}`]
+          if (args.bookIds?.length) parts.push(`--books ${JSON.stringify(args.bookIds.join(","))}`)
+          if (args.url) parts.push(`--url ${JSON.stringify(args.url)}`)
+          return runScript("fb-learn-pr", parts.join(" "))
+        },
+      }),
+
+      "fb-claim": tool({
+        description:
+          "Add a file to a feature book's core_files fence. Use after creating/editing files outside the fence. The AI will auto-run this after edits if a file falls outside any feature's core_files.",
+        args: {
+          filePath: tool.schema
+            .string()
+            .describe("Path to the file to claim (repo-relative or absolute)"),
+          featureId: tool.schema
+            .string()
+            .describe("Feature ID to claim the file under (e.g. feat-books)"),
+          glob: tool.schema
+            .boolean()
+            .optional()
+            .describe("Auto-convert file to directory glob (e.g. src/foo/bar.ts -> src/foo/**)"),
+        },
+        async execute(args) {
+          const vault = findVault()
+          if (!vault) return "Error: no .feature-books/ vault found. Run fb-init first."
+          const parts = [JSON.stringify(args.filePath), args.featureId]
+          if (args.glob) parts.push("--glob")
+          return runScript("fb-claim", parts.join(" "))
+        },
+      }),
     },
 
     "tool.execute.before": async (input, output) => {
@@ -276,11 +329,43 @@ export default (async () => {
       try {
         const fenceScript = path.join(SCRIPTS_DIR, "fence-check.mjs")
         if (!fs.existsSync(fenceScript)) return
-        const result = execSync(
+        execSync(
           `node "${fenceScript}" "${filePath}"`,
-          { encoding: "utf8", cwd: process.cwd() }
+          { stdio: ["pipe", "ignore", "ignore"], encoding: "utf8", cwd: process.cwd() }
         )
-        if (result.trim()) process.stderr.write(result)
+      } catch {}
+    },
+
+    // Auto-book parity for OpenCode (Claude Code uses the Stop hook). When the session goes
+    // idle after code changes, ask fb-autobook.mjs (the shared brain) whether any feature book
+    // is out of sync; if so, re-prompt the model to update it — no manual command needed.
+    // The script's own loop guard (MAX_REPROMPTS + state file) prevents runaway re-prompts.
+    event: async ({ event }) => {
+      try {
+        if (event.type !== "session.idle") return
+        const sessionID = event.properties?.sessionID
+        if (!sessionID || !SCRIPTS_DIR) return
+        const script = path.join(SCRIPTS_DIR, "fb-autobook.mjs")
+        if (!fs.existsSync(script)) return
+
+        let out = ""
+        try {
+          out = execSync(`node "${script}" --report --cwd "${directory}"`, {
+            encoding: "utf8",
+            cwd: directory,
+          })
+        } catch {
+          return
+        }
+
+        let res: { action?: string; reason?: string }
+        try { res = JSON.parse(out) } catch { return }
+        if (res?.action !== "block" || !res.reason) return
+
+        await client.session.prompt({
+          path: { id: sessionID },
+          body: { parts: [{ type: "text", text: res.reason }] },
+        })
       } catch {}
     },
   } satisfies Hooks

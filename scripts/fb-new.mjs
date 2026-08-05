@@ -1,0 +1,207 @@
+#!/usr/bin/env node
+// Create a new Feature Book markdown file under .feature-books/.
+// Builds frontmatter from the schema, validates the id prefix, refuses to overwrite,
+// writes bidirectional relations into linked notes, then runs graph-lint.
+// Usage:
+//   node fb-new.mjs <type> <id> [--title "..."] [--depends_on a,b] [--impacts a,b]
+//                                [--core_files glob,glob] [--related_states s1,s2]
+//   <type> = feature | state | shared | api
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { execSync } from "node:child_process";
+import { findVaultDir } from "./_lib.mjs";
+
+const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
+
+// --- parse args: positional <type> <id>, then --flag value pairs ---
+const argv = process.argv.slice(2);
+const positional = [];
+const flags = {};
+for (let i = 0; i < argv.length; i++) {
+  const a = argv[i];
+  if (a.startsWith("--")) {
+    const key = a.slice(2);
+    const next = argv[i + 1];
+    if (next === undefined || next.startsWith("--")) flags[key] = "true";
+    else { flags[key] = next; i++; }
+  } else positional.push(a);
+}
+const [type, id] = positional;
+const list = (k) => (flags[k] ? flags[k].split(",").map((s) => s.trim()).filter(Boolean) : []);
+const title = flags.title || "";
+const depends_on = list("depends_on");
+const impacts = list("impacts");
+const core_files = list("core_files");
+const related_states = list("related_states");
+
+if (!type || !id) {
+  console.error("✗ Usage: fb-new.mjs <type> <id> [--title ... --depends_on a,b --impacts a,b --core_files glob,glob --related_states s1,s2]");
+  process.exit(1);
+}
+
+const prefixMap = { feature: "feat-", state: "state-", shared: "shared-", api: "api-" };
+const folderMap = { feature: "features", state: "states", shared: "shared", api: "apis" };
+const expected = prefixMap[type];
+if (!expected) { console.error(`✗ Unknown type "${type}" (use: feature | state | shared | api)`); process.exit(1); }
+if (!id.startsWith(expected)) { console.error(`✗ id "${id}" must start with "${expected}" for type "${type}"`); process.exit(1); }
+
+const vault = findVaultDir();
+if (!vault) { console.error("✗ No .feature-books/ vault found. Run fb-init first."); process.exit(1); }
+
+const folder = folderMap[type];
+const folderPath = path.join(vault, folder);
+fs.mkdirSync(folderPath, { recursive: true });
+const filePath = path.join(folderPath, `${id}.md`);
+if (fs.existsSync(filePath)) {
+  console.error(`✗ ${id}.md already exists at .feature-books/${folder}/${id}.md (not overwriting)`);
+  process.exit(1);
+}
+
+// content language (for the Business Rules placeholder)
+let language = "English";
+try {
+  const cfg = JSON.parse(fs.readFileSync(path.join(vault, ".fbconfig.json"), "utf8"));
+  if (cfg.language) language = cfg.language;
+} catch {}
+
+const today = new Date().toISOString().split("T")[0];
+
+// --- build frontmatter ---
+const lines = ["---", `id: ${id}`, `type: ${type}`, `status: draft`, `last_reviewed: ${today}`];
+if (title) lines.push(`title: ${title}`);
+
+// depends_on / impacts use Obsidian wikilinks so the graph draws edges; fences are plain.
+const writeLinks = (key, vals, includeEmpty = false) => {
+  if (!vals.length) {
+    if (includeEmpty) lines.push(`${key}: []`);
+    return;
+  }
+  lines.push(`${key}:`);
+  vals.forEach((v) => lines.push(`  - "[[${v}]]"`));
+};
+const writePlain = (key, vals, includeEmpty = false) => {
+  if (!vals.length) {
+    if (includeEmpty) lines.push(`${key}: []`);
+    return;
+  }
+  lines.push(`${key}:`);
+  vals.forEach((v) => lines.push(`  - ${v}`));
+};
+if (type === "shared") {
+  // Make the complete shared ownership/relationship contract visible even before it is filled in.
+  writePlain("core_files", core_files, true);
+  writeLinks("depends_on", depends_on, true);
+  writeLinks("impacts", impacts, true);
+  writePlain("related_states", related_states, true);
+} else {
+  // Preserve the compact legacy template for existing book types.
+  writeLinks("depends_on", depends_on);
+  writeLinks("impacts", impacts);
+  writePlain("core_files", core_files);
+  writePlain("related_states", related_states);
+}
+
+lines.push("---", "", `# ${title || id}`, "");
+
+if (type === "shared") {
+  lines.push(
+    "## Overview", "", `<!-- Describe the shared capability and why it is cross-feature, in ${language} -->`, "",
+    "## Responsibilities", "", `<!-- State ownership and invariants, in ${language} -->`, "",
+    "## Public Contract", "", `<!-- Document supported entry points and consumer boundaries, in ${language} -->`, "",
+    "## Business/Technical Rules", "", `<!-- Record rules every consumer must follow, in ${language} -->`, "",
+    "## Consumers", "", `<!-- List consumers and keep impacts/depends_on bidirectional, in ${language} -->`, "",
+    "## Constraints and Known Risks", "", `<!-- Include rejected alternatives where material, in ${language} -->`, "",
+    "## Extension or Upgrade Guide", "", `<!-- Record compatibility and migration considerations, in ${language} -->`, "",
+    "## Verification", "", `<!-- Describe tests and downstream checks, in ${language} -->`, ""
+  );
+} else {
+  lines.push("## Business Rules", "", `<!-- Describe the business logic here, in ${language} -->`, "");
+}
+
+lines.push(
+  "## Change Log", "", "| Date | Change |", "|------|--------|", `| ${today} | Created |`, ""
+);
+
+fs.writeFileSync(filePath, lines.join("\n"));
+console.log(`✓ Created .feature-books/${folder}/${id}.md`);
+
+// --- bidirectional relations: inject the reciprocal link into each linked note ---
+function findNoteFile(linkedId) {
+  for (const f of ["features", "states", "shared", "apis"]) {
+    const p = path.join(vault, f, `${linkedId}.md`);
+    if (fs.existsSync(p)) return p;
+  }
+  return null;
+}
+
+// Merge a reciprocal "[[id]]" link into `field` (depends_on/impacts) of an existing note's
+// frontmatter. Always re-reads and re-scans the note's actual current lines first — never
+// assumes the field is missing/empty just because a loose regex didn't match it — so it
+// handles all the shapes the field can already be in: absent, `field: []`, `field: [a, b]`
+// (inline), or an existing multi-line `field:\n  - a\n  - b` list. Returns null if nothing
+// changed (already linked, or no frontmatter found).
+function mergeReciprocalLink(content, field, newId) {
+  if (content.includes(`[[${newId}]]`)) return null; // already linked somewhere in the file
+
+  const lines = content.split("\n");
+  let fmEnd = -1;
+  let fieldIdx = -1;
+  let lastItemIdx = -1;
+  for (let i = 1; i < lines.length; i++) {
+    if (lines[i].trim() === "---") { fmEnd = i; break; }
+    const trimmed = lines[i].trimStart();
+    if (trimmed.startsWith(`${field}:`)) {
+      fieldIdx = i;
+      lastItemIdx = i;
+    } else if (fieldIdx >= 0 && trimmed.startsWith("- ")) {
+      lastItemIdx = i;
+    }
+  }
+  if (fmEnd < 0) return null; // no frontmatter — don't guess, leave the file alone
+
+  if (fieldIdx < 0) {
+    // field doesn't exist at all yet -> add a fresh block right after the opening "---"
+    lines.splice(1, 0, `${field}:`, `  - "[[${newId}]]"`);
+    return lines.join("\n");
+  }
+
+  const headerLine = lines[fieldIdx];
+  const inlineMatch = headerLine.match(/^(\s*)([A-Za-z_][\w-]*:)\s*\[(.*)\]\s*$/);
+  if (inlineMatch) {
+    // `field: []` or `field: [a, b]` (inline array) -> expand to a multi-line list
+    const [, indent, key, inner] = inlineMatch;
+    const existing = inner.split(",").map((s) => s.trim()).filter(Boolean);
+    const expanded = [`${indent}${key}`, ...existing.map((v) => `${indent}  - ${v}`), `${indent}  - "[[${newId}]]"`];
+    lines.splice(fieldIdx, 1, ...expanded);
+    return lines.join("\n");
+  }
+
+  // field already a multi-line list (with or without existing items) -> append after the last item
+  lines.splice(lastItemIdx + 1, 0, `  - "[[${newId}]]"`);
+  return lines.join("\n");
+}
+
+for (const linkedId of [...depends_on, ...impacts]) {
+  const linkedFile = findNoteFile(linkedId);
+  if (!linkedFile) {
+    console.log(`  ⚠ ${linkedId} has no note yet — reciprocal link skipped (run fb-new for it later)`);
+    continue;
+  }
+  const content = fs.readFileSync(linkedFile, "utf8");
+  // if A impacts B, then B must depends_on A (and vice versa)
+  const field = impacts.includes(linkedId) ? "depends_on" : "impacts";
+  const updated = mergeReciprocalLink(content, field, id);
+  if (updated === null) continue; // already linked, or file had no frontmatter to merge into
+  fs.writeFileSync(linkedFile, updated);
+  console.log(`  ✓ linked back: ${linkedId} ${field} ${id}`);
+}
+
+// --- run graph-lint and surface the result ---
+try {
+  const lint = execSync(`node "${path.join(SCRIPT_DIR, "graph-lint.mjs")}"`, { encoding: "utf8", cwd: process.cwd() });
+  console.log("\n--- graph-lint ---\n" + lint);
+} catch (e) {
+  // graph-lint exits 1 on errors; still show its output
+  console.log("\n--- graph-lint ---\n" + (e.stdout || e.message || ""));
+}

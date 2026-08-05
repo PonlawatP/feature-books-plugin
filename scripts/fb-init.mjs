@@ -1,43 +1,18 @@
 #!/usr/bin/env node
-// Bootstrap a new project: create the .feature-books/ skeleton + seed .obsidian/graph.json (4 color groups)
-// so the graph is colored immediately without opening Obsidian to configure it.
-// Usage: node fb-init.mjs [targetDir]  (default = cwd)   add --force to overwrite graph.json
+// Bootstrap a new project: create the .feature-books/ skeleton + seed .obsidian/graph.json/appearance.json
+// so the graph is colored (and fonts/accent set) immediately without opening Obsidian to configure it.
+// Usage: node fb-init.mjs [targetDir]  (default = cwd)   add --force to overwrite graph.json/appearance.json
 import fs from "node:fs";
 import path from "node:path";
+import { DEFAULT_GRAPH_JSON, DEFAULT_APPEARANCE_JSON, getPluginVersion } from "./_lib.mjs";
 
 const args = process.argv.slice(2);
 const force = args.includes("--force");
 const target = path.resolve(args.find((a) => !a.startsWith("--")) || process.cwd());
 const vault = path.join(target, ".feature-books");
 
-// rgb as a packed integer = (r<<16)|(g<<8)|b
-const GRAPH_JSON = {
-  "collapse-filter": true,
-  search: "",
-  showTags: false,
-  showAttachments: false,
-  hideUnresolved: false,
-  showOrphans: true,
-  "collapse-color-groups": false,
-  colorGroups: [
-    { query: "path:features", color: { a: 1, rgb: 3705853 } },  // blue
-    { query: "path:states",   color: { a: 1, rgb: 4176208 } },  // green
-    { query: "path:shared",   color: { a: 1, rgb: 10711543 } }, // purple
-    { query: "path:apis",     color: { a: 1, rgb: 14391812 } }, // amber
-  ],
-  "collapse-display": true,
-  showArrow: true,
-  textFadeMultiplier: 0,
-  nodeSizeMultiplier: 1,
-  lineSizeMultiplier: 1,
-  "collapse-forces": true,
-  centerStrength: 0.5187,
-  repelStrength: 10,
-  linkStrength: 1,
-  linkDistance: 250,
-  scale: 0.7,
-  close: false,
-};
+const GRAPH_JSON = DEFAULT_GRAPH_JSON;
+const APPEARANCE_JSON = DEFAULT_APPEARANCE_JSON;
 
 const INDEX_MD = `# Feature Books — Index
 
@@ -54,6 +29,31 @@ SORT last_reviewed ASC
 \`\`\`
 
 > Install the **Dataview** community plugin for the table to work.
+
+## Specs
+
+Plain-language product specs live under \`specs/\` — no frontmatter, no source paths, written for
+someone who wants to know what a feature does and why, not how it's implemented. Create or refresh
+one with \`/fb-spec-new <topic>\`; it checks first whether a Feature Book already exists for the
+topic (most specs are written before implementation, so usually none will).
+
+\`\`\`dataview
+LIST
+FROM "specs"
+\`\`\`
+
+## Tasks
+
+Issue/task cards live under \`tasks/\`, one stage per folder: \`issues/\` (new, not yet triaged) →
+\`decisions/\` (triaged by \`/fb-triage\`: format normalized, linked to related feature books, effort
+estimated) → \`action/\` (confirmed — dragged here by you) → \`done/\` (completed — dragged here by you).
+Create a card with \`/fb-task\`, triage the inbox with \`/fb-triage\`.
+
+\`\`\`dataview
+TABLE kind, status, effort, related
+FROM "tasks"
+SORT created DESC
+\`\`\`
 `;
 
 function ensureDir(p) { fs.mkdirSync(p, { recursive: true }); }
@@ -68,18 +68,34 @@ function writeIfAbsent(p, content, label) {
 console.log(`Bootstrapping Feature Books at: ${target}\n`);
 for (const d of ["features", "states", "shared", "apis"]) ensureDir(path.join(vault, d));
 console.log("✓ created folders features/ states/ shared/ apis/");
+ensureDir(path.join(vault, "specs"));
+console.log("✓ created folder specs/ (plain-language product specs — no frontmatter schema, not a graph node)");
+for (const d of ["tasks/issues", "tasks/decisions", "tasks/action", "tasks/done"]) ensureDir(path.join(vault, d));
+console.log("✓ created folders tasks/issues/ tasks/decisions/ tasks/action/ tasks/done/");
 
 writeIfAbsent(path.join(vault, "_index.md"), INDEX_MD, ".feature-books/_index.md");
 writeIfAbsent(
   path.join(vault, ".fbconfig.json"),
-  JSON.stringify({ language: "English" }, null, 2) + "\n",
-  ".feature-books/.fbconfig.json (content language, default English)"
+  JSON.stringify({ language: "English", pluginVersion: getPluginVersion() }, null, 2) + "\n",
+  ".feature-books/.fbconfig.json (content language + plugin version stamp)"
 );
 writeIfAbsent(
   path.join(vault, ".obsidian", "graph.json"),
   JSON.stringify(GRAPH_JSON, null, 2) + "\n",
-  ".feature-books/.obsidian/graph.json (4 color groups)"
+  ".feature-books/.obsidian/graph.json (color groups)"
+);
+writeIfAbsent(
+  path.join(vault, ".obsidian", "appearance.json"),
+  JSON.stringify(APPEARANCE_JSON, null, 2) + "\n",
+  ".feature-books/.obsidian/appearance.json (fonts + accent color)"
+);
+writeIfAbsent(
+  path.join(vault, ".gitignore"),
+  "# Feature Books local state (transient — do not commit)\n.fb-autobook.json\n",
+  ".feature-books/.gitignore (ignore auto-book state)"
 );
 
-console.log("\nDone — open .feature-books/ in Obsidian; the graph will be colored by type immediately.");
+console.log("\nDone — open .feature-books/ in Obsidian; the graph will be colored by type and fonts/accent color set immediately.");
 console.log("(Remember to install the Dataview community plugin for the table in _index.md)");
+console.log("If Obsidian settings ever get reset or edited away from this, run /fb-fix to restore them.");
+console.log("Create your first task card with /fb-task, and process the inbox with /fb-triage.");
