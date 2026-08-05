@@ -184,9 +184,10 @@ metadata only: books, tasks, fences, lint, and impact analysis continue to belon
 
 ```bash
 /fb-workspace-init /path/to/workspace
-/fb-workspace-fix
 /fb-workspace-sync
+/fb-workspace-migrate
 /fb-workspace-status
+/fb-workspace-fix
 /fb-workspace-focus frontend feat-pipeline-monitor --task task-fix-filter --related gateway
 ```
 
@@ -195,6 +196,13 @@ After initialization, sync and status read only repositories recorded in
 work is kept in the gitignored `state.local.json`. Open `.feature-books-workspace/` as the Obsidian
 vault to browse its generated `_index.md` and namespaced `repos/<repo>/...` links. Edit the linked
 notes normally—the links point back to the owning repository vault.
+
+By default the vault content stays in each repository and the portal only symlinks it. Run
+`/fb-workspace-migrate` to move that content into `.feature-books-workspace/repos/<repo>/` instead
+(use `--dry-run` to preview). Each repository's `.feature-books/` then becomes a symlink back to the
+hosted copy, so child repositories can keep `.feature-books/` gitignored while the workspace
+repository owns the vault content. Repository-local tools and the Obsidian dashboard resolve the
+hosted content identically; `sync`/`status`/`focus` keep working unchanged.
 
 Workspace init seeds graph colors by knowledge type (features, states, shared capabilities, APIs,
 specs, task stages, data dictionaries, research, POCs, and reports) and hides `_index` notes from
