@@ -11,9 +11,11 @@ the **fence** (which files belong to a feature) and **blast radius** (what a cha
 
 ## Runtime compatibility
 
-This skill supports Codex, Claude Code, and OpenCode. In Codex, users can invoke it explicitly as
-`$feature-books` or describe the desired workflow in natural language. Claude Code additionally
-exposes `/fb-*` slash commands, while OpenCode exposes native `fb-*` tools.
+This skill supports Codex, Claude Code, and OpenCode. On every runtime, describing the desired
+workflow in natural language is enough to trigger it — you do not need to wait for an exact command
+spelling. In Codex, users can also invoke it explicitly as `$feature-books`. Claude Code additionally
+exposes `/fb-*` slash commands as an optional shortcut, and OpenCode exposes native `fb-*` tools as
+an optional shortcut, but neither spelling is required to run the matching workflow.
 
 When Codex needs a bundled script, resolve the plugin root as the directory two levels above this
 `SKILL.md`, then run `node <plugin-root>/scripts/<script>.mjs ...`. Do not assume
@@ -182,9 +184,11 @@ these 4 folders it's physically in, and flags drift after a manual drag.
 
 ## Available workflows
 
-In Codex, interpret requests such as "initialize Feature Books", "run fb-impact", or
-"use `$feature-books` to create a task" as the corresponding workflow below. Claude Code users can
-invoke the slash-command spelling shown here:
+Interpret requests such as "initialize Feature Books", "run fb-impact", or "create a task
+for X" as the corresponding workflow below, on any runtime — recognize the intent from natural
+language and run the matching script yourself. Codex users can also invoke it explicitly as
+`$feature-books`, and Claude Code users can also type the slash-command spelling shown here, but
+neither is required:
 
 - `/fb-init` — bootstrap a new project with `.feature-books/` skeleton + Obsidian graph colors + appearance
 - `/fb-fix` — restore Obsidian graph colors/appearance and re-stamp the vault version
