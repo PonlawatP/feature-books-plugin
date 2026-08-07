@@ -95,6 +95,11 @@ straight to reporting success while the note is still stale.
 - `depends_on` / `impacts`: list of `"[[id]]"` (always bidirectional — if A impacts B, then B depends_on A)
 - `core_files`: globs of the files this note owns (the fence)
 - `related_states`: related Zustand store/slice
+- `capability`: optional workspace-wide product capability slug shared by repo-local feature slices
+- `role`: optional slice role such as `frontend`, `backend`, `gateway`, or `worker`
+- `cross_repo`: optional qualified references (`repo/feature-id`) to related slices in registered repositories
+- `related_files`: optional non-owning mentions (`repo:relative/path`) of files in registered repositories;
+  cross-repository files never belong in this book's `core_files`
 
 ## Choosing a book type
 
@@ -165,8 +170,9 @@ each new consumer. Never finish a shared change without checking downstream impa
 ## Tasks (issue cards) — `tasks/`
 Separate from feature books, but same vault. Each card is a note with its own schema (`id`, `title`,
 `kind`: feature|enhancement|bug|note, `status`, `effort`: S|M|L|XL, `related`: `"[[feat-x]]"` links,
-`created`), plus a body (`## Description`, `## Logic Spec / Steps` for feature/enhancement cards,
-`## Triage Notes`). A card moves physically through 4 folders as it progresses:
+`created`), plus optional `capability` for workspace aggregation and a body (`## Description`,
+`## Logic Spec / Steps` for feature/enhancement cards, `## Triage Notes`). A card moves physically
+through lifecycle folders:
 - `tasks/issues/` — new, untriaged. Created manually with `/fb-task`, whenever you (or the user)
   spot something that needs doing.
 - `tasks/decisions/` — triaged. `/fb-triage` reads **every card physically in `tasks/issues/`** —
@@ -174,13 +180,18 @@ Separate from feature books, but same vault. Each card is a note with its own sc
   made via `/fb-task` — normalizes it to the standard schema (inferring `id`/`title`/`kind`/`created`
   and preserving the author's original prose rather than discarding it), links it to related feature
   books, estimates effort, sets `status: triaged`, and moves it here.
+- `tasks/backlog/` — accepted for later (`status: backlog`), but not currently scheduled or blocked.
+- `tasks/hold/` — accepted work that cannot proceed (`status: hold`). Require `hold_reason`,
+  `resume_when`, and `held_at` so the pause has an explicit, reviewable exit condition.
 - `tasks/action/` — confirmed. The user drags a card here themselves once they decide to act on it.
   Nothing automated does this move — update `status: in-progress` to match when you see one land here.
 - `tasks/done/` — completed. The user drags it here themselves when the work is finished — update
   `status: done` to match.
+- `tasks/cancelled/` — intentionally closed without completion (`status: cancelled`). Require
+  `cancellation_reason` and `cancelled_at`; cancelled is terminal but is not equivalent to done.
 
 `fb-tasks-lint.mjs` (deterministic, no AI) checks that a card's `status` field matches which of
-these 4 folders it's physically in, and flags drift after a manual drag.
+these folders it's physically in, validates hold/cancellation metadata, and flags drift after a manual drag.
 
 ## Available workflows
 
@@ -202,6 +213,7 @@ neither is required:
 - `/fb-workspace-sync` — refresh only repositories registered in the workspace manifest
 - `/fb-workspace-status` — show vault coverage, tasks, and local current-focus state
 - `/fb-workspace-focus` — set or clear the active repository/features/task used for context selection
+  (or focus every repository slice of one capability with `--capability <slug>`)
 - `/fb-learn-pr` — fetch PR review discussion, verify it against implementation, and propose or
   apply durable knowledge updates; no argument resolves the current branch PR, while `--latest`
   and `--auto` discover merged PRs not present in the checkpoint

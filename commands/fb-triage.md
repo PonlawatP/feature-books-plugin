@@ -66,6 +66,7 @@ Steps:
    `node "${CLAUDE_PLUGIN_ROOT}/scripts/graph-lint.mjs"`. Fix any ERRORS before reporting done.
 6. Summarize to the user, per card: title, kind, effort, related features found, and confirm it's
    now in `tasks/decisions/` (mention if it was renamed). List any cards you skipped and why.
-7. Remind the user explicitly: this command only moves `issues/` → `decisions/`. Moving a card from
-   `decisions/` to `action/` (once they confirm they'll work on it) or from `action/` to `done/`
-   (once it's complete) is a manual drag they do themselves — `/fb-triage` never does either move.
+7. Remind the user explicitly: this command only moves `issues/` → `decisions/`. All later moves are
+   manual: `backlog/` for accepted work planned later, `hold/` for work blocked by an explicit
+   resume condition, `action/` for in-progress work, `done/` for completed work, and `cancelled/`
+   for intentionally closed work. Update the status and required hold/cancellation fields after a drag.

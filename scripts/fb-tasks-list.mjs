@@ -3,7 +3,7 @@
 // /fb-triage to reliably find every untriaged card instead of relying on the model to glob for them.
 // Usage:
 //   node fb-tasks-list.mjs               -> list every card, all stages
-//   node fb-tasks-list.mjs new           -> filter by status field (new | triaged | in-progress | done)
+//   node fb-tasks-list.mjs new           -> filter by any task status
 //   node fb-tasks-list.mjs --inbox       -> everything physically in tasks/issues/, regardless of
 //                                            its status field or whether it even has frontmatter —
 //                                            this is what /fb-triage uses, so a card created by

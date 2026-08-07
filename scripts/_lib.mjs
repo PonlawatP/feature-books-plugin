@@ -69,8 +69,11 @@ export const DEFAULT_GRAPH_JSON = {
     { query: "path:apis",     color: { a: 1, rgb: 14391812 } }, // amber
     { query: "path:tasks/issues",    color: { a: 1, rgb: 15158332 } }, // red    — new, untriaged
     { query: "path:tasks/decisions", color: { a: 1, rgb: 15965202 } }, // orange — triaged, awaiting confirmation
+    { query: "path:tasks/backlog",   color: { a: 1, rgb: 10181046 } }, // slate   — accepted, planned later
+    { query: "path:tasks/hold",      color: { a: 1, rgb: 16705372 } }, // yellow  — blocked, waiting to resume
     { query: "path:tasks/action",    color: { a: 1, rgb: 3447003 } },  // cyan/blue — confirmed, in progress
     { query: "path:tasks/done",      color: { a: 1, rgb: 9807270 } },  // gray    — completed
+    { query: "path:tasks/cancelled", color: { a: 1, rgb: 6513507 } },  // dark gray — intentionally closed
   ],
   "collapse-display": true,
   showArrow: true,
@@ -203,15 +206,19 @@ export function loadNotes(vaultDir = findVaultDir()) {
         impacts: arr("impacts").map(unwrapLink),
         core_files: arr("core_files").map(stripQuotes),
         related_states: arr("related_states").map(stripQuotes),
+        capability: stripQuotes(String(fm.capability || "")),
+        role: stripQuotes(String(fm.role || "")),
+        cross_repo: arr("cross_repo").map(stripQuotes),
+        related_files: arr("related_files").map(stripQuotes),
       };
     });
 }
 
 // Task/issue card schema (tasks/) — a separate concept from feature books. Cards move physically
-// between tasks/issues -> tasks/decisions -> tasks/action -> tasks/done as they progress; only the
-// issues -> decisions move is automated (by /fb-triage). The rest is a manual drag by the user.
+// between task lifecycle folders as they progress; only issues -> decisions is automated (by
+// /fb-triage). Backlog, hold, action, done, and cancelled are manual decisions by the user.
 export const TASK_KINDS = ["feature", "enhancement", "bug", "note"];
-export const TASK_STATUSES = ["new", "triaged", "in-progress", "done"];
+export const TASK_STATUSES = ["new", "triaged", "backlog", "hold", "in-progress", "done", "cancelled"];
 export const TASK_EFFORTS = ["S", "M", "L", "XL"];
 // Feature status describes the current implementation lifecycle, not whether every related
 // task card is done. A stable feature may still have optional enhancements in the backlog and
@@ -219,9 +226,17 @@ export const TASK_EFFORTS = ["S", "M", "L", "XL"];
 export const FEATURE_STATUSES = ["draft", "active", "stable", "paused", "deprecated"];
 // Which status a card is expected to carry given which tasks/ subfolder it physically lives in —
 // used by fb-tasks-lint.mjs to catch drift after a manual drag that forgot to update frontmatter.
-export const TASK_FOLDER_STATUS = { issues: "new", decisions: "triaged", action: "in-progress", done: "done" };
+export const TASK_FOLDER_STATUS = {
+  issues: "new",
+  decisions: "triaged",
+  backlog: "backlog",
+  hold: "hold",
+  action: "in-progress",
+  done: "done",
+  cancelled: "cancelled",
+};
 
-// Load all task/issue cards from tasks/ (any of the 4 stage subfolders)
+// Load all task/issue cards from tasks/ (any lifecycle subfolder)
 export function loadTasks(vaultDir = findVaultDir()) {
   if (!vaultDir) return [];
   const repoRoot = path.dirname(vaultDir);
@@ -233,7 +248,7 @@ export function loadTasks(vaultDir = findVaultDir()) {
     const fm = parsed || {};
     const arr = (k) => (Array.isArray(fm[k]) ? fm[k] : fm[k] ? [fm[k]] : []);
     const relFromVault = path.relative(vaultDir, file).replace(/\\/g, "/"); // tasks/<folder>/<file>.md
-    const folder = relFromVault.split("/")[1] || null; // issues | decisions | action | done
+    const folder = relFromVault.split("/")[1] || null;
     const idSlug = path.basename(file, ".md");
     // A card needs normalization if it lacks frontmatter entirely, is missing a required field,
     // or its stamped id doesn't match its own filename (e.g. hand-created directly in Obsidian).
@@ -251,6 +266,12 @@ export function loadTasks(vaultDir = findVaultDir()) {
       // the YAML literal `null` is parsed by our minimal parser as the string "null" — normalize it
       effort: fm.effort && fm.effort !== "null" ? fm.effort : null,
       related: arr("related").map(unwrapLink),
+      capability: stripQuotes(String(fm.capability || "")),
+      hold_reason: stripQuotes(String(fm.hold_reason || "")),
+      resume_when: stripQuotes(String(fm.resume_when || "")),
+      held_at: stripQuotes(String(fm.held_at || "")),
+      cancellation_reason: stripQuotes(String(fm.cancellation_reason || "")),
+      cancelled_at: stripQuotes(String(fm.cancelled_at || "")),
       created: fm.created || "",
     };
   });

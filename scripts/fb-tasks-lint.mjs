@@ -6,7 +6,7 @@
 // tasks/issues/ is the inbox: cards there may be hand-created directly in Obsidian with no
 // frontmatter at all, or an incomplete one — that's expected and NOT an error, it's what /fb-triage
 // is for. Full schema compliance is only required once a card has actually been triaged, i.e. for
-// anything in decisions/, action/, or done/.
+// anything outside issues/.
 import { loadTasks, loadNotes, findVaultDir, TASK_KINDS, TASK_STATUSES, TASK_EFFORTS, TASK_FOLDER_STATUS } from "./_lib.mjs";
 
 const vault = findVaultDir();
@@ -40,8 +40,19 @@ for (const t of tasks) {
   if (t.id !== base) warnings.push(`${t.file}: id "${t.id}" does not match filename "${base}"`);
 
   const expected = t.folder ? TASK_FOLDER_STATUS[t.folder] : null;
+  if (t.folder && !expected) errors.push(`${t.file}: unknown task lifecycle folder "${t.folder}"`);
   if (expected && t.status && t.status !== expected) {
     warnings.push(`${t.file}: lives in tasks/${t.folder}/ but status is "${t.status}" (expected "${expected}") — update the frontmatter after a manual drag`);
+  }
+
+  if (t.folder === "hold") {
+    if (!t.hold_reason) errors.push(`${t.file}: hold tasks require "hold_reason"`);
+    if (!t.resume_when) errors.push(`${t.file}: hold tasks require "resume_when"`);
+    if (!t.held_at) errors.push(`${t.file}: hold tasks require "held_at"`);
+  }
+  if (t.folder === "cancelled") {
+    if (!t.cancellation_reason) errors.push(`${t.file}: cancelled tasks require "cancellation_reason"`);
+    if (!t.cancelled_at) errors.push(`${t.file}: cancelled tasks require "cancelled_at"`);
   }
 
   for (const rel of t.related) {

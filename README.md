@@ -328,11 +328,30 @@ normalize it: it infers `id`/`title`/`kind`/`created` from the content and filen
 author's original prose instead of discarding it, and only asks the user when a card is too sparse
 to make sense of at all.
 
-The 4 stages are physical folders: `issues/` (new) → `decisions/` (triaged by `/fb-triage`) →
-`action/` (you drag it here once you confirm you're working on it) → `done/` (you drag it here once
-it's finished). Only the `issues/` → `decisions/` move is automated; the other two are manual by
-design. `fb-tasks-lint` (deterministic, no AI) flags a card whose `status` field doesn't match the
-folder it's actually sitting in, which catches a manual drag that forgot to update the frontmatter.
+Task lifecycle is represented by physical folders: `issues/` (new) → `decisions/` (triaged by
+`/fb-triage`), followed by a manual decision to move the card to `backlog/` (accepted for later),
+`hold/` (blocked), or `action/` (in progress). Terminal folders are `done/` and `cancelled/`.
+Only `issues/` → `decisions/` is automated. Hold cards require `hold_reason`, `resume_when`, and
+`held_at`; cancelled cards require `cancellation_reason` and `cancelled_at`. `fb-tasks-lint`
+validates these fields and catches folder/status drift after manual drag operations.
+
+## Cross-repository capabilities
+
+Repository-local books remain the source of truth and may only own files from their repository in
+`core_files`. Feature slices that implement the same product capability across repositories can
+share a `capability` slug and declare a `role`. Use `cross_repo` entries in `repo/feature-id` form
+for graph relationships and `related_files` entries in `repo:relative/path` form for non-owning
+file mentions. `fb-workspace sync` validates these references and aggregates slices into a version 2
+catalog without creating a second source-of-truth vault.
+
+```yaml
+capability: pipeline-monitor-runs
+role: frontend
+cross_repo:
+  - meta-data-service/feat-pipeline-monitor-runs
+related_files:
+  - meta-data-service:src/modules/pipeline-monitor/pipeline-monitor.service.ts
+```
 
 ## Notes
 

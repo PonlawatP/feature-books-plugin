@@ -44,9 +44,9 @@ FROM "specs"
 
 ## Tasks
 
-Issue/task cards live under \`tasks/\`, one stage per folder: \`issues/\` (new, not yet triaged) →
-\`decisions/\` (triaged by \`/fb-triage\`: format normalized, linked to related feature books, effort
-estimated) → \`action/\` (confirmed — dragged here by you) → \`done/\` (completed — dragged here by you).
+Issue/task cards live under \`tasks/\`: \`issues/\` (new) → \`decisions/\` (triaged), then manually
+move them to \`backlog/\` (accepted for later), \`hold/\` (blocked), or \`action/\` (in progress).
+Terminal folders are \`done/\` (completed) and \`cancelled/\` (intentionally closed).
 Create a card with \`/fb-task\`, triage the inbox with \`/fb-triage\`.
 
 \`\`\`dataview
@@ -70,8 +70,9 @@ for (const d of ["features", "states", "shared", "apis"]) ensureDir(path.join(va
 console.log("✓ created folders features/ states/ shared/ apis/");
 ensureDir(path.join(vault, "specs"));
 console.log("✓ created folder specs/ (plain-language product specs — no frontmatter schema, not a graph node)");
-for (const d of ["tasks/issues", "tasks/decisions", "tasks/action", "tasks/done"]) ensureDir(path.join(vault, d));
-console.log("✓ created folders tasks/issues/ tasks/decisions/ tasks/action/ tasks/done/");
+const taskFolders = ["issues", "decisions", "backlog", "hold", "action", "done", "cancelled"];
+for (const folder of taskFolders) ensureDir(path.join(vault, "tasks", folder));
+console.log(`✓ created task folders: ${taskFolders.join(", ")}`);
 
 writeIfAbsent(path.join(vault, "_index.md"), INDEX_MD, ".feature-books/_index.md");
 writeIfAbsent(

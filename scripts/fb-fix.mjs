@@ -34,6 +34,10 @@ function forceWrite(p, content, label) {
 
 console.log(`Fixing Feature Books Obsidian settings at: ${vault}\n`);
 
+const taskFolders = ["issues", "decisions", "backlog", "hold", "action", "done", "cancelled"];
+for (const folder of taskFolders) fs.mkdirSync(path.join(vault, "tasks", folder), { recursive: true });
+console.log(`✓ ensured task lifecycle folders: ${taskFolders.join(", ")}`);
+
 forceWrite(
   path.join(vault, ".obsidian", "graph.json"),
   JSON.stringify(DEFAULT_GRAPH_JSON, null, 2) + "\n",

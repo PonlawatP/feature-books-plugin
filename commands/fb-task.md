@@ -15,7 +15,7 @@ Steps:
 2. Parse the argument into `<kind>` (feature | enhancement | bug | note) and `<title>` (the rest).
    - If `kind` is missing or not one of the four, or `title` is empty → ask the user briefly first.
 3. Generate `id` as `task-<kebab-case slug of title>`. If a card with that id already exists anywhere
-   under `tasks/` (issues/decisions/action/done) → append `-2`, `-3`, etc. until unique.
+   under `tasks/` (all lifecycle folders) → append `-2`, `-3`, etc. until unique.
 4. Get today's date by running `date +%F` — do not guess or infer it.
 5. Write `.feature-books/tasks/issues/<id>.md`:
    - frontmatter: `id`, `title`, `kind`, `status: new`, `effort: null`, `related: []`, `created: <date from step 4>`
