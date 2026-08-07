@@ -16,6 +16,7 @@
 // FB_AUTOBOOK=0.
 import fs from "node:fs";
 import path from "node:path";
+import crypto from "node:crypto";
 import { execSync } from "node:child_process";
 import { loadNotes, ownersOf, findVaultDir } from "./_lib.mjs";
 
@@ -28,6 +29,7 @@ const killed = () => ["0", "off", "false"].includes((process.env.FB_AUTOBOOK || 
 
 const MAX_REPROMPTS = 3;
 const STATE_FILE = ".fb-autobook.json";
+const BASELINE_FILE = ".fb-autobook-baselines.json";
 // Only these count as "code" for orphan (new-feature) detection. Files already owned by
 // a book are always relevant regardless of extension.
 const CODE_EXT = new Set([
@@ -44,7 +46,7 @@ async function readPayload() {
   try { return JSON.parse(data); } catch { return {}; }
 }
 
-function changedFiles(repoRoot) {
+function statusEntries(repoRoot) {
   let out;
   try {
     // Strip only trailing newlines — a plain .trim() would eat the leading
@@ -55,12 +57,49 @@ function changedFiles(repoRoot) {
   } catch {
     return null; // not a git repo / git missing -> can't detect -> don't block
   }
-  if (!out) return [];
-  return out
+  if (!out) return new Map();
+  const entries = new Map();
+  for (const line of out
     .split("\n")
-    .map((l) => l.slice(3).trim().replace(/\\/g, "/"))
-    .filter(Boolean)
-    .filter((f) => !f.startsWith(".feature-books/") && !f.startsWith(".claude/"));
+    .filter(Boolean)) {
+    const status = line.slice(0, 2);
+    const raw = line.slice(3).trim();
+    // For rename/copy porcelain records, ownership follows the destination path.
+    const file = raw.includes(" -> ") ? raw.split(" -> ").at(-1) : raw;
+    const normalized = file.replace(/\\/g, "/");
+    if (normalized.startsWith(".feature-books/") || normalized.startsWith(".claude/")) continue;
+    entries.set(normalized, status);
+  }
+  return entries;
+}
+
+function fileFingerprint(repoRoot, file, status) {
+  const hash = crypto.createHash("sha256");
+  hash.update(status || "");
+  const abs = path.join(repoRoot, file);
+  try {
+    const stat = fs.statSync(abs);
+    if (stat.isFile()) hash.update(fs.readFileSync(abs));
+    else hash.update(`<non-file:${stat.mode}>`);
+  } catch {
+    hash.update("<missing>");
+  }
+  return hash.digest("hex");
+}
+
+function workingTreeSnapshot(repoRoot) {
+  const entries = statusEntries(repoRoot);
+  if (entries === null) return null;
+  return Object.fromEntries(
+    [...entries].map(([file, status]) => [file, fileFingerprint(repoRoot, file, status)])
+  );
+}
+
+function changedFiles(repoRoot, baseline = null) {
+  const current = workingTreeSnapshot(repoRoot);
+  if (current === null) return null;
+  if (!baseline) return Object.keys(current);
+  return Object.keys(current).filter((file) => current[file] !== baseline[file]);
 }
 
 // True if the note's Change Log region already contains `date` (YYYY-MM-DD).
@@ -101,10 +140,35 @@ function ensureGitignore(vault) {
     const gi = path.join(vault, ".gitignore");
     let cur = "";
     try { cur = fs.readFileSync(gi, "utf8"); } catch {}
-    if (cur.split(/\r?\n/).some((l) => l.trim() === STATE_FILE)) return;
+    const ignored = new Set(cur.split(/\r?\n/).map((l) => l.trim()));
+    const missing = [STATE_FILE, BASELINE_FILE].filter((f) => !ignored.has(f));
+    if (!missing.length) return;
     const sep = cur && !cur.endsWith("\n") ? "\n" : "";
-    fs.writeFileSync(gi, cur + sep + STATE_FILE + "\n");
+    fs.writeFileSync(gi, cur + sep + missing.join("\n") + "\n");
   } catch {}
+}
+
+const baselinePath = (vault) => path.join(vault, BASELINE_FILE);
+function readBaselines(vault) {
+  try { return JSON.parse(fs.readFileSync(baselinePath(vault), "utf8")); } catch { return {}; }
+}
+function writeBaseline(vault, sessionId, baseline) {
+  try {
+    ensureGitignore(vault);
+    const all = readBaselines(vault);
+    all[sessionId] = { createdAt: new Date().toISOString(), files: baseline };
+    // Bound transient state for long-lived repositories with many sessions.
+    const recent = Object.fromEntries(
+      Object.entries(all)
+        .sort(([, a], [, b]) => String(b?.createdAt || "").localeCompare(String(a?.createdAt || "")))
+        .slice(0, 50)
+    );
+    fs.writeFileSync(baselinePath(vault), JSON.stringify(recent));
+  } catch {}
+}
+function readBaseline(vault, sessionId) {
+  const entry = readBaselines(vault)[sessionId];
+  return entry && entry.files ? entry.files : null;
 }
 
 const statePath = (vault) => path.join(vault, STATE_FILE);
@@ -157,6 +221,10 @@ function buildMessage({ orphans, stale, today, language }) {
     `(per .feature-books/.fbconfig.json); keep ids, paths and code unchanged. ` +
     `The feature-books skill has the schema + rules.`
   );
+  L.push(
+    `These files were changed during this session (pre-existing untouched git diffs are excluded). ` +
+    `Reconcile the books autonomously; do not stop merely because the Feature Book is documentation or fenced.`
+  );
 
   if (stale.size) {
     L.push("");
@@ -188,8 +256,11 @@ function buildMessage({ orphans, stale, today, language }) {
     L.push("");
     L.push("Changed code files not owned by any Feature Book:");
     for (const f of orphans) L.push(`  • ${f}`);
-    L.push("    → If these belong to an existing feature, use the feature-books workflow to claim them.");
-    L.push("    → If this is a NEW feature, use the feature-books workflow to create a book (feature feat-<name>, set core_files), then fill in Overview + Business Rules.");
+    L.push("    → First decide ownership from the USER-REQUESTED CAPABILITY and its business rules, not from file proximity, reused code, or which existing feature it relates to.");
+    L.push("    → Claim into an existing book ONLY when these files implement the same user-facing capability and business-rule boundary already documented there.");
+    L.push("    → A distinct capability/workflow/outcome gets a NEW feature book even when it depends on, extends, or lightly changes an existing feature. Express 'related to' with depends_on / impacts; a graph relationship is not ownership.");
+    L.push("    → For mixed scopes, update the existing book for its owned changes AND create a new book for the new capability. When uncertain, prefer the narrower new book and link it to the existing feature.");
+    L.push("    → For a new capability, CREATE the book automatically now (feature feat-<name>, set core_files), then fill in Overview + Business Rules. Infer the id/title/relations from the user's request when safe; ask the user only when the capability boundary or ownership is genuinely ambiguous.");
   }
 
   L.push("");
@@ -199,12 +270,12 @@ function buildMessage({ orphans, stale, today, language }) {
 }
 
 // The shared brain. Returns { decision: "block"|"pass", reason? }. Applies the loop guard.
-function analyze(cwd) {
+function analyze(cwd, sessionId = "default") {
   const vault = findVaultDir(cwd);
   if (!vault) { dbg("no .feature-books vault"); return { decision: "pass" }; }
   const repoRoot = path.dirname(vault);
 
-  const changed = changedFiles(repoRoot);
+  const changed = changedFiles(repoRoot, readBaseline(vault, sessionId));
   if (changed === null) { dbg("git unavailable"); return { decision: "pass" }; }
   if (!changed.length) { clearState(vault); return { decision: "pass" }; }
 
@@ -229,6 +300,7 @@ function analyze(cwd) {
 async function main() {
   const argv = process.argv.slice(2);
   const report = argv.includes("--report");
+  const snapshot = argv.includes("--snapshot");
 
   if (killed()) {
     if (report) process.stdout.write(JSON.stringify({ action: "pass" }));
@@ -236,15 +308,27 @@ async function main() {
   }
 
   let cwd;
+  let sessionId = "default";
   if (report) {
     const i = argv.indexOf("--cwd");
     cwd = i >= 0 && argv[i + 1] ? argv[i + 1] : process.cwd();
+    const s = argv.indexOf("--session-id");
+    sessionId = s >= 0 && argv[s + 1] ? argv[s + 1] : sessionId;
   } else {
     const payload = await readPayload();
     cwd = payload.cwd && fs.existsSync(payload.cwd) ? payload.cwd : process.cwd();
+    sessionId = payload.session_id || payload.sessionId || sessionId;
   }
 
-  const res = analyze(cwd);
+  if (snapshot) {
+    const vault = findVaultDir(cwd);
+    if (!vault) return;
+    const baseline = workingTreeSnapshot(path.dirname(vault));
+    if (baseline !== null) writeBaseline(vault, sessionId, baseline);
+    return;
+  }
+
+  const res = analyze(cwd, sessionId);
 
   if (report) {
     process.stdout.write(

@@ -13,6 +13,9 @@ Create a new Feature Book from the input: `$ARGUMENTS`
    - Use `shared` only for a technical capability or contract consumed by multiple features when
      no one feature should own it. Keep a one-feature capability in that feature's book until a
      second consumer or real cross-feature contract exists; never use shared as a utility catch-all.
+   - A distinct user-facing capability gets its own `feature` book even when it depends on, extends,
+     or lightly changes an existing feature. Express that relationship with `depends_on` / `impacts`;
+     do not merge capabilities merely because they share code or a page.
 2. Run the script — it validates the prefix, refuses to overwrite, builds the frontmatter,
    writes bidirectional relations into the linked notes, and runs graph-lint:
 

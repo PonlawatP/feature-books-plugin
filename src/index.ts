@@ -342,15 +342,31 @@ export default (async ({ client, directory }: PluginInput) => {
     // The script's own loop guard (MAX_REPROMPTS + state file) prevents runaway re-prompts.
     event: async ({ event }) => {
       try {
-        if (event.type !== "session.idle") return
-        const sessionID = event.properties?.sessionID
+        const props = event.properties as Record<string, unknown>
+        const info = props?.info && typeof props.info === "object"
+          ? props.info as Record<string, unknown>
+          : undefined
+        const sessionID = typeof props?.sessionID === "string"
+          ? props.sessionID
+          : typeof info?.id === "string" ? info.id : undefined
         if (!sessionID || !SCRIPTS_DIR) return
         const script = path.join(SCRIPTS_DIR, "fb-autobook.mjs")
         if (!fs.existsSync(script)) return
 
+        if (event.type === "session.created") {
+          try {
+            execSync(
+              `node "${script}" --snapshot --report --cwd "${directory}" --session-id "${sessionID}"`,
+              { encoding: "utf8", cwd: directory }
+            )
+          } catch {}
+          return
+        }
+        if (event.type !== "session.idle") return
+
         let out = ""
         try {
-          out = execSync(`node "${script}" --report --cwd "${directory}"`, {
+          out = execSync(`node "${script}" --report --cwd "${directory}" --session-id "${sessionID}"`, {
             encoding: "utf8",
             cwd: directory,
           })

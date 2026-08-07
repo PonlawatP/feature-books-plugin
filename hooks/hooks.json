@@ -5,6 +5,10 @@
         "hooks": [
           {
             "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/fb-autobook.mjs\" --snapshot"
+          },
+          {
+            "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/fb-version-check.mjs\""
           }
         ]

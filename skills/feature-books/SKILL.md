@@ -82,6 +82,9 @@ straight to reporting success while the note is still stale.
 > exact books to update. Do it in the same turn: run the `fb-new` workflow for a new feature,
 > claim files with `fb-claim.mjs`, and add the dated Change Log row. It stops prompting the moment the
 > books reflect the change. Users never run these commands by hand. Kill switch: `FB_AUTOBOOK=0`.
+> At `SessionStart`, the hook snapshots pre-existing dirty files and later ignores any whose content
+> did not change during the session. When reconciliation is needed, create/update books autonomously;
+> ask the user only when a new capability's boundary or ownership cannot be inferred safely.
 
 ## Schema reference (frontmatter)
 - `id` (kebab-case, prefix: feat- / state- / shared- / api-) matches the filename
@@ -112,6 +115,28 @@ straight to reporting success while the note is still stale.
 Keep a capability in its feature book while it has only one feature consumer. Do not pre-emptively
 extract it. Consider a shared book when a second consumer appears or a genuine cross-feature
 contract and ownership boundary forms.
+
+## New capability vs. existing feature ownership (required decision gate)
+
+Before claiming any unowned code into an existing book, decide what product capability the user's
+requested scope implements. Do not use code proximity, reused modules, a shared page, or a relation
+to an existing feature as evidence that the existing feature owns the whole scope.
+
+- Create a new `feature` book when the scope introduces a distinct user-facing capability, workflow,
+  outcome, or independently describable set of business rules — even when it depends on, extends,
+  or lightly modifies an existing feature.
+- Claim code into an existing feature only when it implements the same user-facing capability and
+  the same business-rule boundary already described by that book.
+- Represent “related to” with `depends_on` / `impacts` links. A graph relationship is not ownership.
+- If a scope changes an existing feature and adds a new capability, update the existing book for
+  the changed owned files **and** create a new book for the new capability. Do not absorb the new
+  capability into the related book merely because that avoids creating another note.
+- When uncertain, prefer the narrower ownership boundary: create the new feature book and link it
+  to the existing feature. Do not broaden an existing book without explicitly explaining why the
+  new scope is the same capability.
+
+This decision must be made from the user's requested behavior and business rules before running
+`fb-claim`; file paths alone cannot determine product ownership.
 
 ## Shared books — `shared/`
 

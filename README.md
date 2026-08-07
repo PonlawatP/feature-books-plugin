@@ -213,13 +213,22 @@ restores those settings and regenerates the dashboard without touching repositor
 **Enforced automatically (Codex + Claude Code):** a `Stop` hook (`fb-autobook`) runs when a turn finishes. If
 changed code isn't reflected in its owning book's Change Log and lifecycle decision for today — or
 belongs to no book at all (a new feature) — it blocks the turn from ending and hands back exactly what
-to update. Disable with `FB_AUTOBOOK=0`.
+to update. A session-start snapshot excludes pre-existing dirty files that remain untouched, so the
+hook does not claim unrelated work already in the worktree. The agent creates or updates books
+automatically and asks only when a new capability's ownership is genuinely ambiguous. Disable with
+`FB_AUTOBOOK=0`.
 
 Feature lifecycle uses `draft | active | stable | paused | deprecated`. `stable` means the requested
 implementation scope is currently complete; it is not a permanent terminal state. A stable feature
 can still have optional task cards and can return to `active` in a later sprint. For changed feature
 code, the Change Log must record the decision as `status: active` or `status: stable`. Status is never
 derived by counting related tasks; `paused` and `deprecated` require an explicit user decision.
+
+Before claiming unowned code into an existing book, decide ownership from the user-facing capability
+and its business rules. A distinct workflow or outcome gets a new feature book even when it reuses,
+depends on, or lightly changes an existing feature. Use `depends_on` / `impacts` for that relationship;
+relatedness does not imply ownership. For mixed scopes, update the existing book for its owned changes
+and create a separate linked book for the new capability.
 
 ## Shared books
 
@@ -357,7 +366,7 @@ related_files:
 
 - A standalone `.claude/` registers hooks only via `settings.json` — `.claude/hooks/hooks.json` will not fire there. When used as a **Claude Code plugin**, the hook location is correct.
 - Codex discovers `hooks/hooks.json` from the installed plugin. Its edit tools arrive as `apply_patch`; the shared hook scripts extract every file in the patch and return Codex-compatible JSON context.
-- OpenCode hooks live inside the plugin code (`tool.execute.before`), so `hooks/hooks.json` is ignored by OpenCode. The `Stop`-hook behavior is exposed through `--report` mode and the plugin's `session.idle` handler.
+- OpenCode hooks live inside the plugin code (`tool.execute.before`), so `hooks/hooks.json` is ignored by OpenCode. The plugin snapshots the worktree on `session.created`; the `Stop`-hook behavior is exposed through `--report` mode and the `session.idle` handler.
 - The tools (fb-init, fb-new, fb-claim, etc.) are available as native OpenCode tools that the AI can call directly without slash commands.
 
 ---

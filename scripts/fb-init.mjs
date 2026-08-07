@@ -92,7 +92,7 @@ writeIfAbsent(
 );
 writeIfAbsent(
   path.join(vault, ".gitignore"),
-  "# Feature Books local state (transient — do not commit)\n.fb-autobook.json\n",
+  "# Feature Books local state (transient — do not commit)\n.fb-autobook.json\n.fb-autobook-baselines.json\n",
   ".feature-books/.gitignore (ignore auto-book state)"
 );
 
