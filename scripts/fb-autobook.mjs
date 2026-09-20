@@ -335,16 +335,22 @@ async function main() {
     // When used as a PreInvocation hook (AGY replacement for SessionStart),
     // only snapshot on the very first invocation to avoid per-turn overhead.
     if (snapshot && _payload.invocationNum && _payload.invocationNum > 1) {
+      if (Array.isArray(_payload?.workspacePaths)) process.stdout.write(JSON.stringify({}));
       return; // already snapshotted this session
     }
   }
 
 
   if (snapshot) {
+    const isAgy = Array.isArray(_payload?.workspacePaths);
     const vault = findVaultDir(cwd);
-    if (!vault) return;
+    if (!vault) {
+      if (isAgy) process.stdout.write(JSON.stringify({}));
+      return;
+    }
     const baseline = workingTreeSnapshot(path.dirname(vault));
     if (baseline !== null) writeBaseline(vault, sessionId, baseline);
+    if (isAgy) process.stdout.write(JSON.stringify({}));
     return;
   }
 
@@ -362,10 +368,13 @@ async function main() {
   // Claude Code and Codex Stop-hook protocol: {"decision":"block"}.
   // AGY (Antigravity CLI) Stop hook: {"decision":"continue"} to re-enter the loop.
   // Detect AGY by presence of workspacePaths in the already-read payload.
+  const isAgy = Array.isArray(_payload?.workspacePaths);
   if (res.decision === "block") {
-    const isAgy = Array.isArray(_payload?.workspacePaths);
     const decision = isAgy ? "continue" : "block";
     process.stdout.write(JSON.stringify({ decision, reason: res.reason }));
+  } else if (isAgy) {
+    // AGY requires valid JSON on stdout; decision other than "continue" allows stopping
+    process.stdout.write(JSON.stringify({ decision: "pass" }));
   }
   process.exit(0);
 }

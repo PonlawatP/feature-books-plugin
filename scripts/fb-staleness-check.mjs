@@ -34,8 +34,14 @@ for (const file of files) {
 if (!messages.length) process.exit(0);
 const message = messages.join("\n");
 if (isHook) {
-  process.stdout.write(JSON.stringify({
-    hookSpecificOutput: { hookEventName: "PostToolUse", additionalContext: message },
-  }));
+  const isAgy = Array.isArray(payload?.workspacePaths);
+  if (isAgy) {
+    // AGY PostToolUse contract expects empty JSON object {}
+    process.stdout.write(JSON.stringify({}));
+  } else {
+    process.stdout.write(JSON.stringify({
+      hookSpecificOutput: { hookEventName: "PostToolUse", additionalContext: message },
+    }));
+  }
 } else console.error(message);
 process.exit(0);

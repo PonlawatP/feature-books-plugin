@@ -36,17 +36,26 @@ if (!isHook) {
   console.error(message);
   process.exit(STRICT && hasOrphan ? 2 : 0);
 }
-if (STRICT && hasOrphan) {
-  process.stdout.write(JSON.stringify({
-    hookSpecificOutput: {
-      hookEventName: "PreToolUse",
-      permissionDecision: "deny",
-      permissionDecisionReason: message,
-    },
-  }));
+const isAgy = Array.isArray(payload?.workspacePaths);
+if (isAgy) {
+  if (STRICT && hasOrphan) {
+    process.stdout.write(JSON.stringify({ decision: "deny", reason: message }));
+  } else {
+    process.stdout.write(JSON.stringify({ decision: "allow", reason: message }));
+  }
 } else {
-  process.stdout.write(JSON.stringify({
-    hookSpecificOutput: { hookEventName: "PreToolUse", additionalContext: message },
-  }));
+  if (STRICT && hasOrphan) {
+    process.stdout.write(JSON.stringify({
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse",
+        permissionDecision: "deny",
+        permissionDecisionReason: message,
+      },
+    }));
+  } else {
+    process.stdout.write(JSON.stringify({
+      hookSpecificOutput: { hookEventName: "PreToolUse", additionalContext: message },
+    }));
+  }
 }
 process.exit(0);
