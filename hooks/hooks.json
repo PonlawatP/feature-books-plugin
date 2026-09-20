@@ -1,46 +1,49 @@
 {
-  "feature-books": {
-    "PreInvocation": [
+  "hooks": {
+    "SessionStart": [
       {
-        "type": "command",
-        "command": "node \"./scripts/fb-autobook.mjs\" --snapshot",
-        "timeout": 30
-      },
-      {
-        "type": "command",
-        "command": "node \"./scripts/fb-version-check.mjs\"",
-        "timeout": 15
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/fb-autobook.mjs\" --snapshot"
+          },
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/fb-version-check.mjs\""
+          }
+        ]
       }
     ],
     "PreToolUse": [
       {
-        "matcher": "replace_file_content|write_to_file",
+        "matcher": "Edit|Write|MultiEdit",
         "hooks": [
           {
             "type": "command",
-            "command": "node \"./scripts/fence-check.mjs\"",
-            "timeout": 15
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/fence-check.mjs\""
           }
         ]
       }
     ],
     "PostToolUse": [
       {
-        "matcher": "replace_file_content|write_to_file",
+        "matcher": "Edit|Write|MultiEdit",
         "hooks": [
           {
             "type": "command",
-            "command": "node \"./scripts/fb-staleness-check.mjs\"",
-            "timeout": 15
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/fb-staleness-check.mjs\""
           }
         ]
       }
     ],
     "Stop": [
       {
-        "type": "command",
-        "command": "node \"./scripts/fb-autobook.mjs\"",
-        "timeout": 60
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/fb-autobook.mjs\""
+          }
+        ]
       }
     ]
   }

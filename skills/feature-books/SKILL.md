@@ -11,16 +11,19 @@ the **fence** (which files belong to a feature) and **blast radius** (what a cha
 
 ## Runtime compatibility
 
-This skill supports Codex, Claude Code, and OpenCode. On every runtime, describing the desired
-workflow in natural language is enough to trigger it — you do not need to wait for an exact command
-spelling. In Codex, users can also invoke it explicitly as `$feature-books`. Claude Code additionally
-exposes `/fb-*` slash commands as an optional shortcut, and OpenCode exposes native `fb-*` tools as
-an optional shortcut, but neither spelling is required to run the matching workflow.
+This skill supports Antigravity (AGY / Antigravity CLI), Codex, Claude Code, and OpenCode.
+On every runtime, describing the desired workflow in natural language is enough to trigger it —
+you do not need to wait for an exact command spelling.
+- In **Antigravity (AGY)**, lifecycle hooks (`PreInvocation`, `PreToolUse`, `PostToolUse`, `Stop`)
+  are loaded automatically from `hooks.json` at the plugin root, and rules from `rules/AGENTS.md`.
+  Tool calls (`replace_file_content`, `write_to_file`, `view_file`) are checked against code fences.
+- In **Codex**, users can also invoke it explicitly as `$feature-books`.
+- In **Claude Code**, `/fb-*` slash commands are exposed as optional shortcuts.
+- In **OpenCode**, native `fb-*` tools are exposed as optional shortcuts.
 
-When Codex needs a bundled script, resolve the plugin root as the directory two levels above this
-`SKILL.md`, then run `node <plugin-root>/scripts/<script>.mjs ...`. Do not assume
-`CLAUDE_PLUGIN_ROOT` is present in an ordinary Codex shell command; that compatibility variable is
-guaranteed for plugin hooks, not for arbitrary commands initiated by the skill.
+When any runtime needs a bundled script, resolve the plugin root as the directory two levels above
+this `SKILL.md`, then run `node <plugin-root>/scripts/<script>.mjs ...`. Do not assume
+`CLAUDE_PLUGIN_ROOT` is present in an arbitrary shell command.
 
 ## Version check (automatic, no AI involved)
 Every session start, a `SessionStart` hook runs `fb-version-check.mjs` — a plain deterministic
@@ -75,7 +78,7 @@ that reminder as a requirement, not a suggestion:
 A task is not finished until the Feature Book reflects the code as it now stands — do not skip
 straight to reporting success while the note is still stale.
 
-> **Enforced automatically (Claude Code and Codex).** A `Stop` hook (`fb-autobook.mjs`) runs when you finish
+> **Enforced automatically (Antigravity, Claude Code, and Codex).** A `Stop` hook (`fb-autobook.mjs`) runs when you finish
 > a turn. If you changed code but the owning book has no Change Log entry for today, a changed
 > feature has no explicit lifecycle decision for the current scope, or a changed code file belongs
 > to no book at all (a new feature), it **blocks the turn end** and hands you the
@@ -267,6 +270,7 @@ All commands above run these scripts under the hood; you can also call them dire
 - `node "<plugin-root>/scripts/fb-tasks-list.mjs" [--inbox] [--json]` — list task/issue cards
 - `node "<plugin-root>/scripts/fb-tasks-lint.mjs"` — check task card schema + folder/status consistency
 
-> Note: Codex and Claude Code load lifecycle hooks from `hooks/hooks.json`. Codex requires users to
-> review and trust non-managed plugin hooks before they run. OpenCode exposes the same scripts as
+> Note: Antigravity (AGY) loads lifecycle hooks from `hooks.json` at the plugin root and rules from
+> `rules/AGENTS.md`. Codex and Claude Code load lifecycle hooks from `hooks/hooks.json`. Codex requires
+> users to review and trust non-managed plugin hooks before they run. OpenCode exposes the same scripts as
 > native tools via `src/index.ts`; the scripts remain the shared source of truth.

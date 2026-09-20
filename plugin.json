@@ -1,0 +1,22 @@
+{
+  "name": "feature-books",
+  "version": "0.5.0",
+  "description": "Knowledge graph of feature business-logic and code fences, stored as an Obsidian vault in each project's .feature-books/. Loads the relevant feature context before edits and warns about blast radius to prevent regressions.",
+  "author": {
+    "name": "Ponlawat",
+    "email": "ponlawat_pa@maholan.co.th"
+  },
+  "homepage": "https://github.com/PonlawatP/feature-books-plugin",
+  "repository": "https://github.com/PonlawatP/feature-books-plugin",
+  "license": "MIT",
+  "keywords": [
+    "obsidian",
+    "knowledge-graph",
+    "regression",
+    "architecture",
+    "feature-books",
+    "guardrails",
+    "antigravity",
+    "agy"
+  ]
+}

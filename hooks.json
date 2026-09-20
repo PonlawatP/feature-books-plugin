@@ -1,0 +1,47 @@
+{
+  "feature-books": {
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "node \"./scripts/fb-autobook.mjs\" --snapshot",
+        "timeout": 30
+      },
+      {
+        "type": "command",
+        "command": "node \"./scripts/fb-version-check.mjs\"",
+        "timeout": 15
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "replace_file_content|write_to_file",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"./scripts/fence-check.mjs\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "replace_file_content|write_to_file",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"./scripts/fb-staleness-check.mjs\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "node \"./scripts/fb-autobook.mjs\"",
+        "timeout": 60
+      }
+    ]
+  }
+}
