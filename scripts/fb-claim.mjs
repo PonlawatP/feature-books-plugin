@@ -44,22 +44,36 @@ if (feature.core_files.includes(pattern)) {
   process.exit(0);
 }
 
-// Read the actual note file
-const featureFilePath = path.join(vault, feature.file);
+// Read the actual note file. `feature.file` (from loadNotes()) is already relative to
+// repoRoot and includes the `.feature-books/` prefix - joining it onto `vault` (which is
+// itself the `.feature-books` path) would double that segment.
+const featureFilePath = path.join(repoRoot, feature.file);
 let content = fs.readFileSync(featureFilePath, "utf8");
 const lines = content.split("\n");
 
-// Find frontmatter boundaries and core_files section
+// Find frontmatter boundaries and core_files section. `inCoreFiles` must be cleared as
+// soon as a later top-level key (e.g. `depends_on:`/`impacts:`) starts - otherwise a
+// `- ` list item under a DIFFERENT key that happens to follow core_files in the
+// frontmatter gets mistaken for one of its items, and the new entry is spliced into
+// the wrong array instead of core_files.
 let fmEnd = -1;
 let coreFilesIdx = -1;
 let lastItemIdx = -1;
+let inCoreFiles = false;
 
 for (let i = 1; i < lines.length; i++) {
-  if (lines[i].trim() === "---") { fmEnd = i; break; }
-  if (lines[i].trimStart().startsWith("core_files:")) {
-    coreFilesIdx = i;
-    lastItemIdx = i;
-  } else if (coreFilesIdx >= 0 && lines[i].trimStart().startsWith("- ")) {
+  const line = lines[i];
+  if (line.trim() === "---") { fmEnd = i; break; }
+  const isTopLevelKey = /^[A-Za-z_]/.test(line);
+  if (isTopLevelKey) {
+    if (line.trimStart().startsWith("core_files:")) {
+      coreFilesIdx = i;
+      lastItemIdx = i;
+      inCoreFiles = true;
+    } else {
+      inCoreFiles = false;
+    }
+  } else if (inCoreFiles && line.trimStart().startsWith("- ")) {
     lastItemIdx = i;
   }
 }
