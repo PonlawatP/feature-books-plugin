@@ -309,16 +309,36 @@ async function main() {
 
   let cwd;
   let sessionId = "default";
+  let _payload = {};
   if (report) {
     const i = argv.indexOf("--cwd");
     cwd = i >= 0 && argv[i + 1] ? argv[i + 1] : process.cwd();
     const s = argv.indexOf("--session-id");
     sessionId = s >= 0 && argv[s + 1] ? argv[s + 1] : sessionId;
   } else {
-    const payload = await readPayload();
-    cwd = payload.cwd && fs.existsSync(payload.cwd) ? payload.cwd : process.cwd();
-    sessionId = payload.session_id || payload.sessionId || sessionId;
+    _payload = await readPayload();
+
+    // Claude Code / Codex: payload.cwd + payload.session_id
+    // AGY (Antigravity CLI): payload.workspacePaths[0] + payload.conversationId
+    // AGY PreInvocation: also has payload.invocationNum (1-based)
+    const rawCwd =
+      _payload.cwd ||
+      (Array.isArray(_payload.workspacePaths) && _payload.workspacePaths[0]) ||
+      "";
+    cwd = rawCwd && fs.existsSync(rawCwd) ? rawCwd : process.cwd();
+    sessionId =
+      _payload.session_id ||
+      _payload.sessionId ||
+      _payload.conversationId ||
+      sessionId;
+
+    // When used as a PreInvocation hook (AGY replacement for SessionStart),
+    // only snapshot on the very first invocation to avoid per-turn overhead.
+    if (snapshot && _payload.invocationNum && _payload.invocationNum > 1) {
+      return; // already snapshotted this session
+    }
   }
+
 
   if (snapshot) {
     const vault = findVaultDir(cwd);
@@ -339,8 +359,14 @@ async function main() {
     process.exit(0);
   }
 
-  // Claude Code and Codex share this Stop-hook protocol.
-  if (res.decision === "block") process.stdout.write(JSON.stringify({ decision: "block", reason: res.reason }));
+  // Claude Code and Codex Stop-hook protocol: {"decision":"block"}.
+  // AGY (Antigravity CLI) Stop hook: {"decision":"continue"} to re-enter the loop.
+  // Detect AGY by presence of workspacePaths in the already-read payload.
+  if (res.decision === "block") {
+    const isAgy = Array.isArray(_payload?.workspacePaths);
+    const decision = isAgy ? "continue" : "block";
+    process.stdout.write(JSON.stringify({ decision, reason: res.reason }));
+  }
   process.exit(0);
 }
 

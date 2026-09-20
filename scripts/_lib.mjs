@@ -32,16 +32,28 @@ export async function readHookPayload() {
 
 // Claude edit tools provide file_path/path. Codex apply_patch provides the full patch in
 // tool_input.command, so extract every file header from that patch.
+// Antigravity CLI (AGY) sends toolCall.args.TargetFile (replace_file_content / write_to_file)
+// or toolCall.args.AbsolutePath (view_file) — camelCase args, no tool_input wrapper.
 export function hookTargetFiles(payload) {
-  const input = payload?.tool_input || {};
   const files = [];
+
+  // Claude Code / Claude (tool_input.file_path / path)
+  const input = payload?.tool_input || {};
   for (const value of [input.file_path, input.path]) {
     if (typeof value === "string" && value.trim()) files.push(value.trim());
   }
+  // Codex apply_patch (full patch in tool_input.command)
   if (typeof input.command === "string") {
     const re = /^\*\*\* (?:(?:Add|Update|Delete) File|Move to): (.+)$/gm;
     for (const match of input.command.matchAll(re)) files.push(match[1].trim());
   }
+
+  // Antigravity CLI (AGY) — toolCall.args.TargetFile / AbsolutePath / FilePath
+  const agy = payload?.toolCall?.args || {};
+  for (const value of [agy.TargetFile, agy.AbsolutePath, agy.FilePath]) {
+    if (typeof value === "string" && value.trim()) files.push(value.trim());
+  }
+
   return [...new Set(files)];
 }
 

@@ -9,11 +9,15 @@ const payload = arg ? null : await readHookPayload();
 const isHook = !!payload;
 const files = arg ? [arg] : hookTargetFiles(payload);
 if (!files.length) process.exit(0);
+// AGY sends workspacePaths[] instead of cwd
+const cwd = payload?.cwd ||
+  (Array.isArray(payload?.workspacePaths) && payload.workspacePaths[0]) ||
+  process.cwd();
 const notes = loadNotes();
 const messages = [];
 let hasOrphan = false;
 for (const file of files) {
-  const rel = repoRelativePath(file, payload?.cwd || process.cwd());
+  const rel = repoRelativePath(file, cwd);
   if (rel.startsWith(".feature-books/") || rel.startsWith(".claude/") || rel.startsWith(".codex/")) continue;
   const owners = ownersOf(rel, notes);
   if (owners.length) {
