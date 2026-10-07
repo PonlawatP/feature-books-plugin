@@ -295,6 +295,23 @@ export default (async ({ client, directory }: PluginInput) => {
         },
       }),
 
+      "fb-api-spec": tool({
+        description:
+          "Keep Yaak requests in sync with new/changed APIs. 'check' reports the api-specs profile and existing Yaak requests, 'init' writes the architecture profile, 'upsert' idempotently creates or updates ONE request. Read commands/fb-api-spec.md for the full workflow.",
+        args: {
+          subcommand: tool.schema
+            .enum(["check", "init", "upsert"])
+            .describe("'check' to inspect, 'init' to write the profile, 'upsert' to create/update one request"),
+          args: tool.schema
+            .string()
+            .optional()
+            .describe("Passthrough flags, already shell-quoted, e.g. '--entry gateway --method POST --route alert/list --name \"List alerts\" --body-file /tmp/body.json'"),
+        },
+        async execute(args) {
+          return runScript("fb-api-spec", `${args.subcommand} ${args.args ?? ""}`)
+        },
+      }),
+
       "fb-claim": tool({
         description:
           "Add a file to a feature book's core_files fence. Use after creating/editing files outside the fence. The AI will auto-run this after edits if a file falls outside any feature's core_files.",

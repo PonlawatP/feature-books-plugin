@@ -19,5 +19,6 @@ Before finishing any turn that modified or created code files:
    `| YYYY-MM-DD | <summary of change>; status: <active|stable> |`
 3. **Reconcile Lifecycle Status**: Update the frontmatter `status` (`active` if implementation is in progress, `stable` when complete).
 4. **Verify Graph Consistency**: Run `node "<plugin-root>/scripts/graph-lint.mjs"` and ensure 0 errors.
+5. **Sync API specs**: If you added or changed an API and an `api-specs/profile.json` exists (in `.feature-books/` or the workspace portal), run `/fb-api-spec` (read `commands/fb-api-spec.md`) to keep the matching Yaak request in sync.
 
 A code modification task is **not complete** until the matching Feature Book reflects the code as it stands.

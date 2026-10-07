@@ -246,11 +246,12 @@ neither is required:
   apply durable knowledge updates; no argument resolves the current branch PR, while `--latest`
   and `--auto` discover merged PRs not present in the checkpoint
 - `/fb-claim <file-path> <feature-id> [--glob]` — claim a file under a feature's fence (auto-add to core_files)
+- `/fb-api-spec` — keep Yaak requests in sync with new/changed APIs (architecture profile: primary vs raw entrypoints)
 - `/fb-task` — create a new task/issue card in `tasks/issues/`
 - `/fb-triage` — process the task inbox: format, link to feature books, estimate effort, move to `tasks/decisions/`
 
 For deterministic workflows, run the matching script in `<plugin-root>/scripts/`. For the
-judgment-heavy `fb-spec-new`, `fb-learn-pr`, `fb-task`, and `fb-triage` workflows, first read the corresponding
+judgment-heavy `fb-spec-new`, `fb-api-spec`, `fb-learn-pr`, `fb-task`, and `fb-triage` workflows, first read the corresponding
 file under `<plugin-root>/commands/` completely and follow it. Treat `$ARGUMENTS` in those legacy
 command files as the user's natural-language input in Codex.
 
@@ -262,6 +263,7 @@ All commands above run these scripts under the hood; you can also call them dire
 - `node "<plugin-root>/scripts/fence-check.mjs" <file>` — which feature's fence a file belongs to (also runs automatically before edit/write via the PreToolUse hook)
 - `node "<plugin-root>/scripts/fb-autobook.mjs"` — runs automatically on the `Stop` hook: if changed code isn't reflected in its feature book (stale Change Log, missing lifecycle decision, or new-feature orphan), continues the turn with what to update (loop-guarded; disable with `FB_AUTOBOOK=0`)
 - `node "<plugin-root>/scripts/fb-claim.mjs" <file-path> <feature-id> [--glob]` — claim a file under a feature's fence
+- `node "<plugin-root>/scripts/fb-api-spec.mjs" <init|check|upsert> ...` — deterministic half of `/fb-api-spec` (profile + idempotent Yaak upsert); the workflow is judgment-heavy, read `commands/fb-api-spec.md` first
 - `node "<plugin-root>/scripts/fb-fix.mjs"` — force-restore Obsidian graph colors/appearance and re-stamp the vault version
 - `node "<plugin-root>/scripts/fb-version-check.mjs" [check]` — compare the vault's stamped version against the installed plugin
 - `node "<plugin-root>/scripts/fb-workspace.mjs" <init|fix|sync|status|focus|clear-focus>` — manage a multi-repo portal while preserving repo-local source-of-truth vaults
