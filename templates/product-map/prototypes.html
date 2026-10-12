@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="{{LANG}}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{TITLE}} Prototypes</title>
+<!-- Click-through sketch for the options in {{SLUG}}.md. Replace the :root color tokens and the
+     app header with what the live app really looks like (take screenshots first). Data is fake;
+     nothing calls an API. One <section data-scene> per option id; the scene id lives in the URL
+     hash so a link (prototypes.html#o1) opens one scene directly. -->
+<style>
+:root{--bg:#f9fafb;--card:#fff;--fg:#101828;--mut:#667085;--line:#eaecf0;--pri:#7f56d9;--pri-bg:#f4ebff;--red:#f04438;--red-bg:#fee4e2;--yel:#f79009;--yel-bg:#fef0c7;--grn:#12b76a;--grn-bg:#d1fadf;--blu:#2e90fa;--blu-bg:#d1e9ff;--chip:#f2f4f7;color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0c111d;--card:#161b26;--fg:#f5f5f6;--mut:#94969c;--line:#333741;--pri:#9e77ed;--pri-bg:#2c1c5f;--red-bg:#55160c;--yel-bg:#4e1d09;--grn-bg:#053321;--blu-bg:#102a56;--chip:#1f242f;color-scheme:dark}}
+:root[data-theme=dark]{--bg:#0c111d;--card:#161b26;--fg:#f5f5f6;--mut:#94969c;--line:#333741;--pri:#9e77ed;--pri-bg:#2c1c5f;--red-bg:#55160c;--yel-bg:#4e1d09;--grn-bg:#053321;--blu-bg:#102a56;--chip:#1f242f;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 Inter,system-ui,-apple-system,"Noto Sans Thai",sans-serif}
+header.app{display:flex;align-items:center;gap:16px;padding:10px 16px;background:var(--card);border-bottom:1px solid var(--line)}
+header.app .search{flex:1;max-width:560px;margin:0 auto;border:1px solid var(--line);border-radius:8px;padding:6px 12px;color:var(--mut)}
+.av{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#8a9a2b;color:#fff;font-size:12px;font-weight:600}
+.wrap{max-width:1180px;margin:0 auto;padding:16px}
+.intro{color:var(--mut);margin:0 0 12px}
+.scenes{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+.scenes button{border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:999px;padding:6px 12px;font:inherit;cursor:pointer}
+.scenes button[aria-pressed=true]{background:var(--pri);border-color:var(--pri);color:#fff}
+.scenes small{opacity:.75}
+.crumb{font-size:12px;color:var(--mut)}.crumb b{color:var(--pri);font-weight:500}
+h1{font-size:22px;margin:2px 0}h2{font-size:15px;margin:0 0 8px}
+.sub{color:var(--mut);margin:0 0 14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.grid{display:grid;gap:12px}
+.btn{border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:8px;padding:6px 12px;font:inherit;font-size:13px;cursor:pointer}
+.btn.pri{background:var(--pri);border-color:var(--pri);color:#fff}
+.btn.ghost{color:var(--pri);border-color:var(--pri)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.new{outline:2px dashed var(--pri);outline-offset:3px;border-radius:10px;position:relative}
+.new::after{content:attr(data-new);position:absolute;top:-11px;right:8px;background:var(--pri);color:#fff;font-size:11px;font-weight:600;padding:1px 8px;border-radius:999px;white-space:nowrap}
+.pill{display:inline-block;padding:1px 9px;border-radius:999px;font-size:12px;font-weight:600}
+.p-red{background:var(--red);color:#fff}.p-yel{background:var(--yel);color:#fff}.p-grn{background:var(--grn);color:#fff}.p-blu{background:var(--blu);color:#fff}.p-gry{background:var(--chip);color:var(--mut)}
+.p-sev{border:1px solid var(--yel);color:var(--yel);background:var(--yel-bg)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+table{border-collapse:collapse;width:100%;min-width:640px}
+th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;font-size:13px}
+th{color:var(--mut);font-weight:500}
+tr:last-child td{border-bottom:0}
+a,.link{color:var(--pri);text-decoration:none;cursor:pointer}
+.stat{display:flex;flex-direction:column;gap:2px}.stat b{font-size:24px}
+.kv{display:grid;grid-template-columns:120px 1fr;gap:6px 12px;font-size:13px}.kv span:nth-child(odd){color:var(--mut)}
+.note{margin-top:14px;padding:10px 12px;border-left:3px solid var(--pri);background:var(--pri-bg);border-radius:6px;font-size:13px}
+.kan{display:grid;grid-template-columns:repeat(4,minmax(180px,1fr));gap:10px;overflow-x:auto}
+.col h3{font-size:12px;margin:0 0 8px}
+.tk{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;font-size:13px}
+.tk.flash{animation:flash 1.6s}
+@keyframes flash{0%{box-shadow:0 0 0 3px var(--pri)}100%{box-shadow:none}}
+dialog{border:0;border-radius:14px;padding:0;width:min(560px,94vw);background:var(--card);color:var(--fg)}
+dialog::backdrop{background:rgba(16,24,40,.45)}
+dialog header{padding:14px 18px;border-bottom:1px solid var(--line);font-weight:600}
+dialog .body{padding:14px 18px;display:grid;gap:10px}
+dialog footer{padding:12px 18px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px}
+label{font-size:13px;display:grid;gap:4px}
+input,select,textarea{font:inherit;font-size:13px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg)}
+.prefill{background:var(--pri-bg)}
+.toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 16px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9}
+.toast.on{opacity:1}
+.bar{height:8px;border-radius:4px;background:var(--chip);overflow:hidden}.bar i{display:block;height:100%}
+.spark{display:flex;align-items:flex-end;gap:3px;height:48px}.spark i{flex:1;background:var(--pri);border-radius:2px 2px 0 0;opacity:.8}
+.themebar{margin-left:auto;display:flex;gap:2px}
+.themebar button{border:1px solid var(--line);background:var(--card);color:var(--mut);border-radius:6px;padding:3px 8px;font:inherit;font-size:12px;cursor:pointer}
+.themebar button[aria-pressed=true]{color:var(--pri);border-color:var(--pri)}
+.tw .new,.kan .new{outline-offset:-3px}
+.tw .new::after,.kan .new::after{position:static;display:inline-block;margin-left:6px;vertical-align:middle}
+.deeplink{margin-bottom:12px;padding:8px 12px;border:1px solid var(--pri);border-radius:8px;background:var(--pri-bg);font-size:13px}
+tr.hit td{background:var(--pri-bg)}
+[hidden]{display:none!important}
+.kv span{overflow-wrap:anywhere}
+@media (max-width:720px){.kan{grid-template-columns:repeat(4,200px)}.kv{grid-template-columns:100px 1fr}.grid{grid-template-columns:minmax(0,1fr)!important}}
+</style></head><body>
+<header class="app"><span style="font-size:20px">☰</span><div class="search">Search Data Assets</div>
+<header class="app"><span style="font-size:20px">☰</span><div class="search">{{APP_SEARCH_PLACEHOLDER}}</div>
+<div class="themebar" role="group" aria-label="Theme"><button data-t="light">Light</button><button data-t="auto">Auto</button><button data-t="dark">Dark</button></div><span class="av">A</span></header>
+<div class="wrap">
+<p class="intro">Rough prototypes of the options in <a href="{{SLUG}}.html">{{TITLE}}</a> - drawn from screenshots of the real app, all data fake. Dashed frame <span class="pill" style="background:var(--pri);color:#fff">new</span> = proposed addition; everything else is today's UI.</p>
+<nav class="scenes" id="scenes">
+<button data-s="o1">O1 <small>{{OPTION_1_SHORT}}</small></button>
+</nav>
+
+<section data-scene="o1">
+<div class="crumb">{{BREADCRUMB}} / <b>{{PAGE}}</b></div>
+<h1>{{PAGE}}</h1>
+<p class="sub">{{WHAT_THIS_SCENE_SHOWS}}</p>
+<div class="card">
+  <div class="row"><span>Existing page content</span>
+    <button class="btn pri new" data-new="O1" id="o1-open">{{NEW_ACTION}}</button></div>
+  <div class="note">Result: <span id="o1-n">0</span> item(s) created</div>
+</div>
+</section>
+</div>
+
+<dialog id="dlg"><form method="dialog"><header id="dlg-h"></header><div class="body" id="dlg-b"></div><footer><button class="btn" value="cancel">Cancel</button><button class="btn pri" value="ok" id="dlg-ok">Save</button></footer></form></dialog>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const $ = (s, r = document) => r.querySelector(s);
+const toast = (m) => { const t = $('#toast'); t.textContent = m; t.classList.add('on'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('on'), 1800); };
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+// theme + scene switch (scene kept in the URL hash so a link can open one directly)
+const setTheme = (t) => { t === 'auto' ? document.documentElement.removeAttribute('data-theme') : document.documentElement.setAttribute('data-theme', t);
+  document.querySelectorAll('.themebar button').forEach((b) => b.setAttribute('aria-pressed', b.dataset.t === t)); try { localStorage.setItem('{{SLUG}}-proto-theme', t); } catch {} };
+document.querySelectorAll('.themebar button').forEach((b) => (b.onclick = () => setTheme(b.dataset.t)));
+let saved = 'auto'; try { saved = localStorage.getItem('{{SLUG}}-proto-theme') || 'auto'; } catch {} setTheme(saved);
+const show = (s) => { document.querySelectorAll('[data-scene]').forEach((el) => (el.hidden = el.dataset.scene !== s));
+  document.querySelectorAll('#scenes button').forEach((b) => b.setAttribute('aria-pressed', b.dataset.s === s)); };
+document.querySelectorAll('#scenes button').forEach((b) => (b.onclick = () => { location.hash = b.dataset.s; }));
+
+// generic modal: fields = [{k,label,v,type,opts,prefill}]
+const ask = (title, fields, okLabel = 'Save') => new Promise((res) => {
+  const d = $('#dlg'); $('#dlg-h').textContent = title; $('#dlg-ok').textContent = okLabel;
+  $('#dlg-b').innerHTML = fields.map((f) => `<label>${esc(f.label)}${f.opts ? `<select name="${f.k}" class="${f.prefill ? 'prefill' : ''}">${f.opts.map((o) => `<option${o === f.v ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select>`
+    : f.type === 'area' ? `<textarea name="${f.k}" rows="3">${esc(f.v || '')}</textarea>` : `<input name="${f.k}" type="${f.type || 'text'}" value="${esc(f.v || '')}" class="${f.prefill ? 'prefill' : ''}">`}</label>`).join('')
+    + (fields.some((f) => f.prefill) ? '<small style="color:var(--mut)">highlighted fields = prefilled from context</small>' : '');
+  d.onclose = () => res(d.returnValue === 'ok' ? Object.fromEntries(new FormData(d.querySelector('form'))) : null);
+  d.returnValue = ''; d.showModal();
+});
+
+// O1 - replace with the real interaction of the option; keep state in plain arrays
+let o1 = 0;
+$('#o1-open').onclick = async () => {
+  const r = await ask('{{NEW_ACTION}}', [
+    { k: 'name', label: 'Name *', v: '' },
+    { k: 'ctx', label: 'Related item', v: 'prefilled-from-context', prefill: true },
+  ]);
+  if (!r) return;
+  $('#o1-n').textContent = ++o1; toast('Created (prototype - nothing saved)');
+};
+window.onhashchange = () => show(location.hash.slice(1) || 'o1'); show(location.hash.slice(1) || 'o1');
+</script>
+</body></html>

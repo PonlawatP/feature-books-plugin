@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="{{LANG}}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{TITLE}}</title><style>
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#2b211b;--card:#33271f;--fg:#f4e9dc;--mut:#d2bca4;--line:#4a3b30;--acc:#f2955a;--code:#3a2d24;--live:#b9d2aa;--live-bg:#3a4233;--partial:#ecc78c;--partial-bg:#4a3820;--stub:#ff9a85;--stub-bg:#4a2620;--na:#b39c86;--na-bg:#3a2d24;--ink:var(--fg);--muted:var(--mut);--rule:var(--line);--paper:#2b211b;color-scheme:dark}}
+:root[data-theme=dark]{--bg:#2b211b;--card:#33271f;--fg:#f4e9dc;--mut:#d2bca4;--line:#4a3b30;--acc:#f2955a;--code:#3a2d24;--live:#b9d2aa;--live-bg:#3a4233;--partial:#ecc78c;--partial-bg:#4a3820;--stub:#ff9a85;--stub-bg:#4a2620;--na:#b39c86;--na-bg:#3a2d24;--ink:var(--fg);--muted:var(--mut);--rule:var(--line);--paper:#2b211b;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.7 system-ui,-apple-system,"Noto Sans Thai","Sarabun",sans-serif}
+.wrap{display:grid;grid-template-columns:230px minmax(0,1fr);gap:32px;max-width:1280px;margin:0 auto;padding:56px 16px 24px}
+nav{position:sticky;top:16px;align-self:start;font-size:14px;max-height:calc(100vh - 32px);overflow:auto}
+nav ol{list-style:none;margin:0;padding:0;border-left:2px solid var(--line)}
+nav a{display:block;padding:6px 12px;color:var(--mut);text-decoration:none}
+nav a:hover{color:var(--acc)}
+main{min-width:0}
+h1{font-size:1.7rem;line-height:1.35;margin:0 0 8px}
+h2{font-size:1.35rem;margin:2.4rem 0 .6rem;padding-top:.6rem;border-top:1px solid var(--line)}
+h3{font-size:1.05rem;margin:1.6rem 0 .4rem}
+.lead{color:var(--mut);margin:.2rem 0}
+code{background:var(--code);padding:1px 5px;border-radius:4px;font:0.86em ui-monospace,Menlo,monospace;word-break:break-word}
+.book{font:0.86em ui-monospace,Menlo,monospace;color:var(--acc);word-break:break-word}
+ul,ol{padding-left:1.3rem}li{margin:.25rem 0}
+.tw{overflow-x:auto;margin:.6rem 0 1rem;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:560px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{background:var(--code);font-weight:600;position:sticky;top:0}
+tr:last-child td{border-bottom:0}
+.b{display:inline-block;padding:0 8px;border-radius:999px;font-size:12px;font-weight:600;line-height:1.7}
+.b-live,.b-y{color:var(--live);background:var(--live-bg)}
+.b-partial,.b-p{color:var(--partial);background:var(--partial-bg)}
+.b-stub,.b-n{color:var(--stub);background:var(--stub-bg)}
+figure{margin:1rem 0}figure img{max-width:100%;height:auto;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+figcaption{color:var(--mut);font-size:13px;margin-top:4px}
+@media (max-width:860px){.wrap{display:block}nav{position:static;max-height:none;margin-bottom:16px}}
+
+.themebar{position:fixed;top:12px;right:16px;z-index:20;display:flex;gap:2px;padding:3px;border:1px solid var(--line);border-radius:999px;background:var(--card);box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.themebar button{border:0;background:none;color:var(--mut);font:inherit;font-size:13px;line-height:1;padding:6px 10px;border-radius:999px;cursor:pointer}
+.themebar button[aria-pressed=true]{background:var(--acc);color:var(--bg)}
+img.zoomable{cursor:zoom-in}
+img.zoomable:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+dialog.lb{width:100vw;height:100vh;max-width:none;max-height:none;margin:0;padding:0;border:0;background:var(--bg);color:var(--fg)}
+dialog.lb::backdrop{background:rgba(0,0,0,.5)}
+.lb-view{position:absolute;inset:0;overflow:hidden;cursor:grab;touch-action:none}
+.lb-view.drag{cursor:grabbing}
+.lb-view img{position:absolute;left:0;top:0;transform-origin:0 0;max-width:none;user-select:none;-webkit-user-drag:none}
+.lb-bar{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:1;display:flex;align-items:center;gap:4px;padding:4px;border:1px solid var(--line);border-radius:999px;background:var(--card);box-shadow:0 2px 10px rgba(0,0,0,.15)}
+.lb-bar button{min-width:34px;height:34px;border:0;border-radius:999px;background:none;color:var(--fg);font:inherit;font-size:16px;cursor:pointer}
+.lb-bar button:hover{background:var(--code)}
+.lb-bar output{min-width:52px;text-align:center;font-size:13px;color:var(--mut)}
+.lb-n{min-width:36px;text-align:center;font-size:13px;color:var(--mut)}
+.lb-cap{position:absolute;bottom:34px;left:50%;transform:translateX(-50%);width:min(90vw,900px);text-align:center;font-size:14px;padding:4px 12px;border-radius:8px;background:var(--card)}
+.lb-hint{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);font-size:12px;color:var(--mut);text-align:center;padding:0 16px}
+</style></head><body><div class="wrap">
+<!-- Fill from <slug>.md: one <li> per h2, ids s1..sN. Keep the markdown as the source of truth;
+     this page is a rendered copy for people who do not use Obsidian. -->
+<nav><strong>{{TOC_LABEL}}</strong><ol><li><a href="#s1">1. {{SECTION_1}}</a></li></ol></nav>
+<main><h1>{{TITLE}}</h1>
+<p class="lead">type: spec | status: draft | last_reviewed: {{DATE}}</p>
+<h2 id="s1">1. {{SECTION_1}}</h2>
+<!-- Diagrams: reference the light .svg only; the script swaps to <name>.dark.svg in dark theme
+     and every svg image opens in the zoom/pan lightbox. alt text = the lightbox caption. -->
+<figure><img src="assets/{{SLUG}}/01-module-map.svg" alt="{{CAPTION}}" loading="lazy"><figcaption>{{CAPTION}}</figcaption></figure>
+<!-- Maturity badges: <span class="b b-live">live</span> <span class="b b-partial">partial</span> <span class="b b-stub">stub</span>;
+     heatmap cells: b-y / b-p / b-n. Feature book names: <span class="book">feat-x.md</span>. Wrap tables in <div class="tw">. -->
+</main></div><div class="themebar" role="group" aria-label="Theme"><button data-t="auto" title="Follow system">Auto</button><button data-t="light" title="Light theme">Light</button><button data-t="dark" title="Dark theme">Dark</button></div>
+<dialog class="lb" aria-label="View diagram full screen"><div class="lb-view"><img alt=""></div>
+<div class="lb-bar"><button data-z="prev" title="Previous (←)">‹</button><span class="lb-n"></span><button data-z="next" title="Next (→)">›</button><button data-z="out" title="Zoom out (-)">−</button><output>100%</output><button data-z="in" title="Zoom in (+)">+</button><button data-z="fit" title="Fit (0)">⤢</button><button data-z="close" title="Close (Esc)">✕</button></div>
+<div class="lb-cap"></div><div class="lb-hint">← → switch · drag to pan · wheel/pinch to zoom · double-click to fit · Esc close</div></dialog>
+<script>
+(() => {
+  const root = document.documentElement, mq = matchMedia('(prefers-color-scheme: dark)');
+  const imgs = [...document.querySelectorAll('img[src$=".svg"]')];
+  imgs.forEach(i => { i.dataset.light = i.getAttribute('src'); i.classList.add('zoomable'); i.tabIndex = 0; i.setAttribute('role', 'button'); });
+  const lb = document.querySelector('dialog.lb'), view = lb.querySelector('.lb-view'), big = view.querySelector('img'), pct = lb.querySelector('output'), num = lb.querySelector('.lb-n'), cap = lb.querySelector('.lb-cap');
+  let open = null;
+  const isDark = () => root.dataset.theme ? root.dataset.theme === 'dark' : mq.matches;
+  const srcOf = i => isDark() ? i.dataset.light.replace(/\.svg$/, '.dark.svg') : i.dataset.light;
+  function applyTheme(t) {
+    if (t === 'auto') delete root.dataset.theme; else root.dataset.theme = t;
+    document.querySelectorAll('.themebar button').forEach(b => b.setAttribute('aria-pressed', b.dataset.t === t));
+    imgs.forEach(i => { i.src = srcOf(i); });
+    if (open) big.src = srcOf(open);
+    try { localStorage.setItem('{{SLUG}}-theme', t); } catch (e) {}
+  }
+  let saved = 'auto'; try { saved = localStorage.getItem('{{SLUG}}-theme') || 'auto'; } catch (e) {}
+  applyTheme(saved);
+  mq.addEventListener('change', () => { if (!root.dataset.theme) applyTheme('auto'); });
+  document.querySelector('.themebar').addEventListener('click', e => { const t = e.target.closest('button')?.dataset.t; if (t) applyTheme(t); });
+
+  // lightbox: s = scale, (x, y) = image top-left in viewport px
+  let s = 1, x = 0, y = 0, fitS = 1;
+  const draw = () => { big.style.transform = `translate(${x}px,${y}px) scale(${s})`; pct.value = Math.round(s * 100) + '%'; };
+  function fit() {
+    const W = view.clientWidth, H = view.clientHeight, w = big.naturalWidth, h = big.naturalHeight;
+    s = fitS = Math.min((W - 32) / w, (H - 150) / h); x = (W - w * s) / 2; y = 64 + (H - 150 - h * s) / 2; draw(); // 64px toolbar, 86px caption+hint
+  }
+  function zoomAt(f, cx, cy) {
+    const ns = Math.min(Math.max(s * f, fitS * 0.5), 8);
+    x = cx - (cx - x) * ns / s; y = cy - (cy - y) * ns / s; s = ns; draw();
+  }
+  const center = () => [view.clientWidth / 2, view.clientHeight / 2];
+  function show(i) {
+    open = i; big.alt = cap.textContent = i.alt; big.src = srcOf(i); num.textContent = `${imgs.indexOf(i) + 1}/${imgs.length}`;
+    if (!lb.open) lb.showModal();
+    big.decode().then(fit, fit);
+  }
+  const go = d => show(imgs[(imgs.indexOf(open) + d + imgs.length) % imgs.length]);
+  imgs.forEach(i => {
+    i.addEventListener('click', () => show(i));
+    i.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); show(i); } });
+  });
+  lb.addEventListener('close', () => { open?.focus(); open = null; });
+  lb.querySelector('.lb-bar').addEventListener('click', e => {
+    const z = e.target.closest('button')?.dataset.z;
+    if (z === 'in') zoomAt(1.25, ...center()); else if (z === 'out') zoomAt(0.8, ...center());
+    else if (z === 'fit') fit(); else if (z === 'prev') go(-1); else if (z === 'next') go(1); else if (z === 'close') lb.close();
+  });
+  lb.addEventListener('keydown', e => {
+    if (e.key === '+' || e.key === '=') zoomAt(1.25, ...center());
+    else if (e.key === '-') zoomAt(0.8, ...center());
+    else if (e.key === '0') fit();
+    else if (e.key === 'ArrowLeft') go(-1);
+    else if (e.key === 'ArrowRight') go(1);
+  });
+  view.addEventListener('wheel', e => {
+    e.preventDefault(); const r = view.getBoundingClientRect();
+    zoomAt(Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)), e.clientX - r.left, e.clientY - r.top);
+  }, { passive: false });
+  view.addEventListener('dblclick', fit);
+  // drag to pan with one pointer, pinch to zoom with two
+  const pts = new Map(); let pinch = 0;
+  view.addEventListener('pointerdown', e => { view.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]); view.classList.add('drag'); });
+  view.addEventListener('pointermove', e => {
+    const p = pts.get(e.pointerId); if (!p) return;
+    if (pts.size === 1) { x += e.clientX - p[0]; y += e.clientY - p[1]; draw(); }
+    pts.set(e.pointerId, [e.clientX, e.clientY]);
+    if (pts.size === 2) {
+      const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]), r = view.getBoundingClientRect();
+      if (pinch) zoomAt(d / pinch, (a[0] + b[0]) / 2 - r.left, (a[1] + b[1]) / 2 - r.top);
+      pinch = d;
+    }
+  });
+  const up = e => { pts.delete(e.pointerId); pinch = 0; if (!pts.size) view.classList.remove('drag'); };
+  view.addEventListener('pointerup', up); view.addEventListener('pointercancel', up);
+  addEventListener('resize', () => { if (open) fit(); });
+})();
+</script>
+</body></html>

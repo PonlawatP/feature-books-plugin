@@ -1,6 +1,6 @@
 {
   "name": "@ponlawatp/feature-books",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Knowledge graph of feature business-logic and code fences, stored as an Obsidian vault — works with Codex, Claude Code, and OpenCode",
   "type": "module",
   "main": "./dist/index.js",
@@ -20,6 +20,7 @@
     "hooks",
     "scripts",
     "skills",
+    "templates",
     "README.md"
   ],
   "scripts": {

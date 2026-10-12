@@ -247,11 +247,13 @@ neither is required:
   and `--auto` discover merged PRs not present in the checkpoint
 - `/fb-claim <file-path> <feature-id> [--glob]` — claim a file under a feature's fence (auto-add to core_files)
 - `/fb-api-spec` — keep Yaak requests in sync with new/changed APIs (architecture profile: primary vs raw entrypoints)
+- `/fb-product-map <focus>` — survey every module in parallel and write a product module map + diagrams
+  (via the `diagram-design` skill when installed) + click-through prototypes of options for one focus area
 - `/fb-task` — create a new task/issue card in `tasks/issues/`
 - `/fb-triage` — process the task inbox: format, link to feature books, estimate effort, move to `tasks/decisions/`
 
 For deterministic workflows, run the matching script in `<plugin-root>/scripts/`. For the
-judgment-heavy `fb-spec-new`, `fb-api-spec`, `fb-learn-pr`, `fb-task`, and `fb-triage` workflows, first read the corresponding
+judgment-heavy `fb-spec-new`, `fb-product-map`, `fb-api-spec`, `fb-learn-pr`, `fb-task`, and `fb-triage` workflows, first read the corresponding
 file under `<plugin-root>/commands/` completely and follow it. Treat `$ARGUMENTS` in those legacy
 command files as the user's natural-language input in Codex.
 

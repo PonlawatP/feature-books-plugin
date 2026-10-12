@@ -1,6 +1,6 @@
 {
   "name": "feature-books",
-  "version": "0.6.0+codex.20261007034810",
+  "version": "0.7.0+codex.20261012171331",
   "description": "Knowledge graph of feature business logic and code fences, stored as an Obsidian vault in each project.",
   "author": {
     "name": "Ponlawat",
